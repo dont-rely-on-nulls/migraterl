@@ -1,0 +1,52 @@
+name: "[PostgreSQL] Integration"
+
+on:
+  workflow_call:
+    inputs:
+      PG_VERSION:
+        required: true
+        type: string
+
+      CONTINUE_ON_ERROR:
+        required: false
+        type: string
+        default: false
+  workflow_dispatch:
+
+env:
+  PGHOST: localhost
+  PGPORT: 5432
+  PGPASSWORD: postgres
+  PGUSER: postgres
+  PGDATABASE: migraterl
+  CONTINUE_ON_ERROR: ${{ inputs.CONTINUE_ON_ERROR }}
+
+jobs:
+  integrations:
+    name: "[v${{ inputs.PG_VERSION }}]"
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:${{ inputs.PG_VERSION }}
+        env:
+          PGUSER: ${{ env.PGUSER }}
+          POSTGRES_PASSWORD: ${{ env.PGPASSWORD }}
+          POSTGRES_USER: ${{ env.PGUSER }}
+          POSTGRES_DATABASE: ${{ env.PGDATABASE }}
+        options: >-
+          --health-cmd "pg_isready -U migraterl"
+          --health-interval=30s
+          --health-timeout=10s
+          --health-retries=5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - name: Run Testing Suite
+        continue-on-error: ${{ fromJSON(env.CONTINUE_ON_ERROR) }}
+        run: |
+          nix develop .#ci --impure -c rebar3 compile
