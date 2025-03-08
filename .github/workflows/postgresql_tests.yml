@@ -1,0 +1,58 @@
+name: "[PostgreSQL] DB Integrations"
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "master" ]
+    paths:
+      - .github/workflows/**
+      - src/**
+      - test/**
+      - migrations/**
+      - rebar.config
+      - justfile
+  pull_request:
+    branches: [ "*" ]
+    paths:
+      - .github/workflows/**
+      - src/**
+      - test/**
+      - migrations/**
+      - rebar.config
+      - justfile
+
+concurrency:
+  group: ${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  integrations:
+    name: "[PostgreSQL] Integration Tests"
+    uses: ./.github/workflows/postgresql_template.yml
+
+    strategy:
+      fail-fast: true
+      # To avoid getting the jobs cancelled if the number
+      # of versions being tested on parallel increases.
+      max-parallel: 2
+      # My plan is to always support the last 5 versions
+      # of postgresql
+      matrix:
+        # TODO: uncomment this later
+        # versions: [ { pg: "13"}, { pg: "14"}, { pg: "15"}, { pg: "16"} ]
+        versions: [ { pg: "16"} ]
+        experimental: [false]
+        include:
+          # It's ok to error on the latest release
+          - versions: {pg: "17"}
+            experimental: true
+
+    with:
+      PG_VERSION: ${{ matrix.versions.pg }}
+      # As long as it is not an official pipeline, failing
+      # is tolerated.
+      # Also, I'm unable to make the official docs guidelines work,
+      # See https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#example-preventing-a-specific-failing-matrix-job-from-failing-a-workflow-run
+      # So I'm resorting to this hack:
+      # https://github.com/actions/runner/issues/1492#issuecomment-1031669824
+      CONTINUE_ON_ERROR: ${{ matrix.experimental }}

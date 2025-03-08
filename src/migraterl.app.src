@@ -1,0 +1,16 @@
+{application, migraterl, [
+    {description, "An OTP application"},
+    {vsn, "0.1.0"},
+    {registered, []},
+    {mod, {migraterl, []}},
+    {applications, [
+        kernel,
+        stdlib,
+        epgsql,
+        erlandono
+    ]},
+    {env, []},
+    {modules, [migraterl, file_utils]},
+    {licenses, ["Apache-2.0"]},
+    {links, []}
+]}.

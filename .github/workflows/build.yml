@@ -1,0 +1,48 @@
+name: "Build"
+
+on:
+  push:
+    branches: [ "master" ]
+    paths:
+      - .github/workflows/**
+      - src/**
+      - test/**
+      - config/**
+      - lib/**
+      - rebar.config
+      - rebar.lock
+      - flake.nix
+      - flake.lock
+  pull_request:
+    branches: [ "master" ]
+    paths:
+      - .github/workflows/**
+      - src/**
+      - test/**
+      - config/**
+      - lib/**
+      - rebar.config
+      - rebar.lock
+      - flake.nix
+      - flake.lock
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: "Build"
+        run: |
+          nix build
