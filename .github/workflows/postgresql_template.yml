@@ -48,4 +48,4 @@ jobs:
       - name: Run Testing Suite
         continue-on-error: ${{ fromJSON(env.CONTINUE_ON_ERROR) }}
         run: |
-          nix develop .#ci --impure -c make test
+          nix develop .#ci --impure -c rebar3 compile
