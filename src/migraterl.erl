@@ -4,7 +4,7 @@
 %%-------------------------------------------------------------------
 -module(migraterl).
 
--export([init/1, migrate/2]).
+-export([migrate/2]).
 -export([default_connection/0]).
 
 -include("internal_types.hrl").
@@ -36,19 +36,19 @@ default_connection() ->
     Result :: ok | error().
 upgrade(Conn, Filename) ->
     {ok, Bin} = file:read_file(Filename),
-    SQL = file_utils:format_bin_content(Bin),
+    {ok, SQL} = file_utils:format_bin_content(Bin),
     case epgsql:squery(Conn, SQL) of
         {ok, _, _} -> ok;
         Otherwise -> {error, upgrade_failure, Otherwise}
     end.
 
 %% @doc Applies a migration file to the Database.
+%% @todo Rewrite this to run everything in a single transaction.
 %% @end
 -spec upgrade(Conn :: epgsql:connection(), Version :: integer(), Dir :: directory()) -> Result when
     Result :: ok | {error, any()}.
 upgrade(Conn, _Version, Dir) ->
     {ok, Files} = file_utils:read_directory(Dir),
-    % TODO: Rewrite this to be in a single transaction
     _X = lists:map(fun(F) -> upgrade(Conn, F) end, Files),
     ok.
 
@@ -58,7 +58,7 @@ upgrade(Conn, _Version, Dir) ->
     Result :: ok | error().
 init(Conn) ->
     {ok, Dir} = file_utils:read_system_migrations(?MODULE),
-    upgrade(Conn, Dir).
+    upgrade(Conn, 1, Dir).
 
 %% @doc
 %% Given a directory, applies only the files not already present on

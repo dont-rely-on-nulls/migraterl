@@ -15,11 +15,11 @@ profile_path(Dir) ->
         filename:dirname(Dir)
     ).
 
--spec system_path(ModuleName :: atom(), Dir :: directory()) -> directory().
-system_path(ModuleName, Dir) ->
-    SystemPath = ["rel", ModuleName, "database", "system"],
+-spec database_path(ModuleName :: atom(), Dir :: directory()) -> directory().
+database_path(ModuleName, Dir) ->
     Release = profile_path(Dir),
-    filename:join([Release | SystemPath]).
+    Path = ["rel", ModuleName, "database"],
+    filename:join([Release | Path]).
 
 -spec read_directory(Dir :: directory()) -> Result when
     Result :: {ok, [filename()]} | error().
@@ -40,12 +40,21 @@ read_system_migrations(ModuleName) ->
         {error, Reason} ->
             {error, read_directory_failure, Reason};
         Dir ->
-            Path = system_path(ModuleName, Dir),
+            DatabasePath = database_path(ModuleName, Dir),
+            Path = filename:join(DatabasePath, "system"),
             {ok, Path}
     end.
 
--spec format_bin_content(Bin :: binary()) -> [sql()].
+-spec format_bin_content(Bin :: binary()) -> Result when
+    Result :: {ok, [sql()]} | error().
 format_bin_content(Bin) ->
     RemoveLineBreaks = binary:split(Bin, [<<"\n">>], [global]),
     Content = lists:map(fun(X) -> unicode:characters_to_list(X) end, RemoveLineBreaks),
-    lists:concat(Content).
+    SQL = lists:concat(Content),
+    case string:is_empty(SQL) of
+        true ->
+            Message = "The provided file is empty",
+            {error, empty_sql_file, Message};
+        _ ->
+            {ok, SQL}
+    end.

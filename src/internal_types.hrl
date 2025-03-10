@@ -11,5 +11,5 @@
 
 % Library Errors
 -type error_code() ::
-    read_directory_failure | init_failure | upgrade_failure.
+    read_directory_failure | init_failure | empty_sql_file | upgrade_failure.
 -type error() :: {error, Type :: error_code(), Reason :: any()}.

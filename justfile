@@ -6,8 +6,8 @@ set dotenv-load := true
 dbuser := "admin"
 dbname := "migraterl"
 database := justfile_directory() + "/migrations"
-apps := justfile_directory() + "/apps"
-server_port := "8080"
+src := justfile_directory() + "/src"
+test := justfile_directory() + "/test"
 
 # Lists all availiable targets
 default:
@@ -49,37 +49,14 @@ server: build
 test:
     rebar3 do eunit, ct
 
-# Migrates the DB (up)
-db-up:
-    {{ database }}/migrate.sh -u
-
-# Nukes the DB
-db-down:
-    {{ database }}/migrate.sh -d
-
-# Populate DB
-db-input:
-    {{ database }}/migrate.sh -i
-
-# Hard reset DB
-db-reset: db-down db-up db-input
-
 # --------
 # Releases
 # --------
 
 # Create a prod release of all apps
 release:
-    rebar3 as prod release -n server
+    rebar3 as prod release
 
 # Create a prod release (for nix) of the server
-release-nix:
-    rebar3 as prod tar
-
-# ----------
-# Deployment
-# ----------
-
-# Builds the deployment docker image with Nix
-build-docker:
-    nix build .#dockerImage
+release-test:
+    rebar3 as test release
