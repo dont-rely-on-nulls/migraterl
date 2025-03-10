@@ -1,3 +1,7 @@
+%%-------------------------------------------------------------------
+% @doc Library module.
+% @end
+%%-------------------------------------------------------------------
 -module(migraterl).
 
 -export([init/1, migrate/2]).
@@ -11,6 +15,8 @@
 -define(PGPASSWORD, os:getenv("PGPASSWORD", "postgres")).
 -define(PGDATABASE, os:getenv("PGDATABASE", "migraterl")).
 
+%% @doc A default connection, for local testing or CI.
+%% @end
 -spec default_connection() -> {ok, epgsql:connection()} | {error, epgsql:connect_error()}.
 default_connection() ->
     Connection =
@@ -24,30 +30,43 @@ default_connection() ->
         },
     epgsql:connect(Connection).
 
--spec init(Conn :: epgsql:connection()) -> ok.
-init(Conn) ->
-    {ok, Files} = file_utils:read_system_migrations(?MODULE),
-    % TODO: Rewrite this to be in a single transaction
-    _X = lists:map(fun(F) -> upgrade(Conn, F) end, Files),
-    ok.
-
--spec upgrade(Conn :: epgsql:connection(), Filename :: filename()) -> ok | {error, any()}.
+%% @doc Applies a migration file to the Database.
+%% @end
+-spec upgrade(Conn :: epgsql:connection(), Filename :: filename()) -> Result when
+    Result :: ok | error().
 upgrade(Conn, Filename) ->
     {ok, Bin} = file:read_file(Filename),
     SQL = file_utils:format_bin_content(Bin),
     case epgsql:squery(Conn, SQL) of
         {ok, _, _} -> ok;
-        Otherwise -> {error, Otherwise}
+        Otherwise -> {error, upgrade_failure, Otherwise}
     end.
 
--spec upgrade(Conn :: epgsql:connection(), Version :: integer(), File :: directory()) -> ok | {error, any()}.
-upgrade(Conn, _Version, File) ->
-    {ok, Files} = file_utils:read_directory(File),
+%% @doc Applies a migration file to the Database.
+%% @end
+-spec upgrade(Conn :: epgsql:connection(), Version :: integer(), Dir :: directory()) -> Result when
+    Result :: ok | {error, any()}.
+upgrade(Conn, _Version, Dir) ->
+    {ok, Files} = file_utils:read_directory(Dir),
     % TODO: Rewrite this to be in a single transaction
     _X = lists:map(fun(F) -> upgrade(Conn, F) end, Files),
     ok.
 
--spec migrate(Conn :: epgsql:connection(), Dir :: directory()) -> ok | {error, any()}.
+%% @doc Creates the required migraterl tables on the Database.
+%% @end
+-spec init(Conn :: epgsql:connection()) -> Result when
+    Result :: ok | error().
+init(Conn) ->
+    {ok, Dir} = file_utils:read_system_migrations(?MODULE),
+    upgrade(Conn, Dir).
+
+%% @doc
+%% Given a directory, applies only the files not already present on
+%% the migration. If the migration table does not yet exist, make sure
+%% to create it beforehand.
+%% @end
+-spec migrate(Conn :: epgsql:connection(), Dir :: directory()) -> Result when
+    Result :: ok | error().
 migrate(Conn, Dir) ->
     {ok, Files} = file_utils:read_directory(Dir),
     Version = 1,

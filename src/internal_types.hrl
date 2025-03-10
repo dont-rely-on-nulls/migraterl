@@ -10,5 +10,6 @@
 -type migration() :: {Version :: version(), Filename :: filename()}.
 
 % Library Errors
--type error_code() :: directory_does_not_exist | directory_is_empty.
--type error() :: {error, Type :: atom()}.
+-type error_code() ::
+    read_directory_failure | init_failure | upgrade_failure.
+-type error() :: {error, Type :: error_code(), Reason :: any()}.
