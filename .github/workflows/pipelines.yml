@@ -26,8 +26,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+
+  test:
+    uses: ./.github/workflows/tests.yml
+    needs: build
+
+  dialyzer:
+    uses: ./.github/workflows/dialyzer.yml
+    needs: test
+
   integrations:
     name: "[PostgreSQL] Integration Tests"
+    needs: dialyzer
     uses: ./.github/workflows/postgresql_template.yml
 
     strategy:

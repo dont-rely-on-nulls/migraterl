@@ -1,4 +1,4 @@
-name: "Nix Build"
+name: "Simple Tests"
 
 on:
   workflow_call:
@@ -7,8 +7,8 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: Build
+  simple-tests:
+    name: Simple Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -20,6 +20,6 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
 
-      - name: "Build"
+      - name: "Run eunit tests"
         run: |
-          nix build
+          nix develop .#ci --impure -c rebar3 eunit

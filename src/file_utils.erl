@@ -34,7 +34,7 @@ read_directory(Dir) ->
     end.
 
 -spec read_system_migrations(ModuleName :: atom()) -> Result when
-    Result :: [filename()] | error().
+    Result :: directory() | error().
 read_system_migrations(ModuleName) ->
     case code:lib_dir(ModuleName) of
         {error, Reason} ->

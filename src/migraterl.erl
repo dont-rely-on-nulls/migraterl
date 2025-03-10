@@ -15,6 +15,8 @@
 -define(PGPASSWORD, os:getenv("PGPASSWORD", "postgres")).
 -define(PGDATABASE, os:getenv("PGDATABASE", "migraterl")).
 
+-dialyzer({nowarn_function, [init/1]}).
+
 %% @doc A default connection, for local testing or CI.
 %% @end
 -spec default_connection() -> {ok, epgsql:connection()} | {error, epgsql:connect_error()}.
@@ -71,7 +73,7 @@ migrate(Conn, Dir) ->
     {ok, Files} = file_utils:read_directory(Dir),
     Version = 1,
     case epqsql:squery(Conn, "SELECT MAX(version) FROM migraterl_history") of
-        {error, _Error} ->
+        {error, _} ->
             ok = init(Conn),
             upgrade(Conn, Version, Files);
         {ok, _} ->
