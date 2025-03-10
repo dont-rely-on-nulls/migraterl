@@ -5,7 +5,7 @@
 %%-------------------------------------------------------------------
 -module(file_utils).
 
--export([read_system_migrations/1]).
+-export([read_system_migrations/1, format_bin_content/1, read_directory/1] ).
 
 -include("internal_types.hrl").
 
@@ -21,10 +21,10 @@ system_path(ModuleName, Dir) ->
     Release = profile_path(Dir),
     filename:join([Release | SystemPath]).
 
--spec read_files(Dir :: directory()) -> Result when
+-spec read_directory(Dir :: directory()) -> Result when
     Reason :: nonempty_string(),
     Result :: {ok, [filename()]} | {error, Reason}.
-read_files(Dir) ->
+read_directory(Dir) ->
     case file:list_dir(Dir) of
         {ok, Files} ->
             List = lists:map(fun(File) -> filename:join(Dir, File) end, Files),
@@ -40,5 +40,13 @@ read_system_migrations(ModuleName) ->
             {error, Reason};
         Dir ->
             Path = system_path(ModuleName, Dir),
-            read_files(Path)
+            read_directory(Path)
     end.
+
+
+-spec format_bin_content(Bin :: binary()) -> [sql()].
+format_bin_content(Bin) ->
+    RemoveLineBreaks = binary:split(Bin, [<<"\n">>], [global]),
+    Content = lists:map(fun(X) -> unicode:characters_to_list(X) end, RemoveLineBreaks),
+    lists:concat(Content).
+

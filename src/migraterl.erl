@@ -1,7 +1,7 @@
 -module(migraterl).
 
--export([init/0, migrate/2]).
--export([default_connection/0, init/2]).
+-export([init/1, migrate/2]).
+-export([default_connection/0]).
 
 -include("internal_types.hrl").
 
@@ -24,29 +24,37 @@ default_connection() ->
         },
     epgsql:connect(Connection).
 
--spec format_bin_content(Bin :: binary()) -> [binary()].
-format_bin_content(Bin) ->
-    RemoveLineBreaks = binary:split(Bin, [<<"\n">>], [global]),
-    Content = lists:map(fun(X) -> unicode:characters_to_list(X) end, RemoveLineBreaks),
-    lists:concat(Content).
+-spec init(Conn :: epgsql:connection()) -> ok.
+init(Conn) ->
+    {ok, Files} = file_utils:read_system_migrations(?MODULE),
+    % TODO: Rewrite this to be in a single transaction
+    _X = lists:map(fun(F) -> upgrade(Conn, F) end, Files),
+    ok.
 
--spec init(Conn :: epgsql:connection(), Filename :: filename()) -> ok | {error, any()}.
-init(Conn, Filename) ->
+-spec upgrade(Conn :: epgsql:connection(), Filename :: filename()) -> ok | {error, any()}.
+upgrade(Conn, Filename) ->
     {ok, Bin} = file:read_file(Filename),
-    Content = format_bin_content(Bin),
-    case epgsql:squery(Conn, Content) of
+    SQL = file_utils:format_bin_content(Bin),
+    case epgsql:squery(Conn, SQL) of
         {ok, _, _} -> ok;
         Otherwise -> {error, Otherwise}
     end.
 
-%-spec init(Conn :: epgsql:connection()) -> ok.
-init() ->
-    {ok, Files} = file_utils:read_system_migrations(?MODULE),
-    io:format("~p~n", [Files]),
-    {ok, Conn} = default_connection(),
+-spec upgrade(Conn :: epgsql:connection(), Version :: integer(), File :: directory()) -> ok | {error, any()}.
+upgrade(Conn, _Version, File) ->
+    {ok, Files} = file_utils:read_directory(File),
     % TODO: Rewrite this to be in a single transaction
-    _X = lists:map(fun(F) -> init(Conn, F) end, Files),
+    _X = lists:map(fun(F) -> upgrade(Conn, F) end, Files),
     ok.
 
-migrate(_Path, _Query) ->
-    ok.
+-spec migrate(Conn :: epgsql:connection(), Dir :: directory()) -> ok | {error, any()}.
+migrate(Conn, Dir) ->
+    {ok, Files} = file_utils:read_directory(Dir),
+    Version = 1,
+    case epqsql:squery(Conn, "SELECT MAX(version) FROM migraterl_history") of
+        {error, _Error} ->
+            ok = init(Conn),
+            upgrade(Conn, Version, Files);
+        {ok, _} ->
+            upgrade(Conn, Version, Files)
+    end.
