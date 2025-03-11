@@ -8,6 +8,7 @@
 -export([read_system_migrations/1, format_bin_content/1, read_directory/1]).
 
 -include("internal_types.hrl").
+-include("lib_types.hrl").
 
 -spec profile_path(Dir :: directory()) -> directory().
 profile_path(Dir) ->
@@ -29,8 +30,9 @@ read_directory(Dir) ->
             List = lists:map(fun(File) -> filename:join(Dir, File) end, Files),
             Sorted = lists:sort(List),
             {ok, Sorted};
-        {error, Reason} ->
-            {error, read_directory_failure, Reason}
+        Otherwise ->
+            Message = io_lib:format("Error while reading directory ~p at ~p~n", Dir, Otherwise),
+            {error, read_directory_failure, Message}
     end.
 
 -spec read_system_migrations(ModuleName :: atom()) -> Result when
@@ -46,7 +48,7 @@ read_system_migrations(ModuleName) ->
     end.
 
 -spec format_bin_content(Bin :: binary()) -> Result when
-    Result :: {ok, [sql()]} | error().
+    Result :: {'ok', sql()} | error().
 format_bin_content(Bin) ->
     RemoveLineBreaks = binary:split(Bin, [<<"\n">>], [global]),
     Content = lists:map(fun(X) -> unicode:characters_to_list(X) end, RemoveLineBreaks),

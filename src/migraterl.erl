@@ -4,10 +4,11 @@
 %%-------------------------------------------------------------------
 -module(migraterl).
 
--export([migrate/2]).
+-export([init/1, migrate/2]).
 -export([default_connection/0]).
 
 -include("internal_types.hrl").
+-include("lib_types.hrl").
 
 -define(PGHOST, os:getenv("PGHOST", "127.0.0.1")).
 -define(PGPORT, list_to_integer(os:getenv("PGPORT", "5432"))).
@@ -15,13 +16,14 @@
 -define(PGPASSWORD, os:getenv("PGPASSWORD", "postgres")).
 -define(PGDATABASE, os:getenv("PGDATABASE", "migraterl")).
 
--dialyzer({nowarn_function, [init/1]}).
+%-dialyzer({nowarn_function, [init/1]}).
 
 %% @doc A default connection, for local testing or CI.
 %% @end
--spec default_connection() -> {ok, epgsql:connection()} | {error, epgsql:connect_error()}.
+-spec default_connection() -> Result when
+    Result :: epgsql:connection() | error().
 default_connection() ->
-    Connection =
+    Config =
         #{
             host => ?PGHOST,
             port => ?PGPORT,
@@ -30,7 +32,13 @@ default_connection() ->
             database => ?PGDATABASE,
             timeout => 4000
         },
-    epgsql:connect(Connection).
+    case epgsql:connect(Config) of
+        {ok, Conn} ->
+            Conn;
+        Otherwise ->
+            Message = io_lib:format("Error while setting connection ~p~n", Otherwise),
+            {error, db_connection_error, Message}
+    end.
 
 %% @doc Applies a migration file to the Database.
 %% @end
@@ -49,9 +57,10 @@ upgrade(Conn, Filename) ->
 %% @end
 -spec upgrade(Conn :: epgsql:connection(), Version :: integer(), Dir :: directory()) -> Result when
     Result :: ok | {error, any()}.
-upgrade(Conn, _Version, Dir) ->
+upgrade(Conn, Version, Dir) ->
     {ok, Files} = file_utils:read_directory(Dir),
-    _X = lists:map(fun(F) -> upgrade(Conn, F) end, Files),
+    Migrations = lists:nthtail(Version, Files),
+    _X = lists:map(fun(F) -> upgrade(Conn, F) end, Migrations),
     ok.
 
 %% @doc Creates the required migraterl tables on the Database.
@@ -60,7 +69,7 @@ upgrade(Conn, _Version, Dir) ->
     Result :: ok | error().
 init(Conn) ->
     {ok, Dir} = file_utils:read_system_migrations(?MODULE),
-    upgrade(Conn, 1, Dir).
+    upgrade(Conn, 0, Dir).
 
 %% @doc
 %% Given a directory, applies only the files not already present on
@@ -71,11 +80,18 @@ init(Conn) ->
     Result :: ok | error().
 migrate(Conn, Dir) ->
     {ok, Files} = file_utils:read_directory(Dir),
-    Version = 1,
-    case epqsql:squery(Conn, "SELECT MAX(version) FROM migraterl_history") of
+    Query = """
+        SELECT COALESCE(MAX(version),0) as last_version
+        FROM migraterl_history
+    """,
+    case epqsql:squery(Conn, Query) of
         {error, _} ->
             ok = init(Conn),
-            upgrade(Conn, Version, Files);
-        {ok, _} ->
-            upgrade(Conn, Version, Files)
+            upgrade(Conn, 0, Files);
+        {ok, _, [{Version}]} ->
+            upgrade(Conn, binary_to_integer(Version), Files);
+        Otherwise ->
+            Message = io_lib:format("Unmapped Case: ~p~n", Otherwise),
+            logger:error(Message),
+            {error, unmapped_case, Message}
     end.
