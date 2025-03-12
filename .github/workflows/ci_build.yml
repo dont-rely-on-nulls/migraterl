@@ -3,6 +3,18 @@ name: "[Nix] Build"
 on:
   workflow_call:
   workflow_dispatch:
+  push:
+    branches: [ "master" ]
+    paths:
+      - .github/workflows/**
+      - src/**
+      - test/**
+      - database/**
+      - flake.nix
+      - flake.lock
+      - rebar.config
+      - rebar.lock
+      - justfile
 
 permissions:
   contents: read

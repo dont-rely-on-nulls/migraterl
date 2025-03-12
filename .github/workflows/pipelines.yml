@@ -2,18 +2,6 @@ name: "Pipeline"
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ "master" ]
-    paths:
-      - .github/workflows/**
-      - src/**
-      - test/**
-      - database/**
-      - flake.nix
-      - flake.lock
-      - rebar.config
-      - rebar.lock
-      - justfile
   pull_request:
     branches: [ "*" ]
     paths:
@@ -33,20 +21,20 @@ concurrency:
 
 jobs:
   build:
-    uses: ./.github/workflows/build.yml
+    uses: ./.github/workflows/ci_build.yml
 
   test:
-    uses: ./.github/workflows/tests.yml
+    uses: ./.github/workflows/ci_tests.yml
     needs: build
 
   dialyzer:
-    uses: ./.github/workflows/dialyzer.yml
+    uses: ./.github/workflows/ci_dialyzer.yml
     needs: test
 
   integrations-pg:
     name: "[PostgreSQL] Integration"
     needs: dialyzer
-    uses: ./.github/workflows/postgresql_template.yml
+    uses: ./.github/workflows/postgresql.yml
 
     strategy:
       fail-fast: true

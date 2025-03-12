@@ -3,6 +3,18 @@ name: "Simple Tests"
 on:
   workflow_call:
   workflow_dispatch:
+  push:
+    branches: [ "master" ]
+    paths:
+      - .github/workflows/**
+      - src/**
+      - test/**
+      - database/**
+      - flake.nix
+      - flake.lock
+      - rebar.config
+      - rebar.lock
+      - justfile
 
 permissions:
   contents: read
@@ -22,5 +34,9 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@main
 
       - name: "Run eunit tests"
+        run: |
+          nix develop .#ci --impure -c rebar3 eunit
+
+      - name: "Get Code coverage"
         run: |
           nix develop .#ci --impure -c rebar3 eunit

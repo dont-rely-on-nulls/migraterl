@@ -12,6 +12,18 @@ on:
         type: string
         default: false
   workflow_dispatch:
+  push:
+    branches: [ "master" ]
+    paths:
+      - .github/workflows/**
+      - src/**
+      - test/**
+      - database/**
+      - flake.nix
+      - flake.lock
+      - rebar.config
+      - rebar.lock
+      - justfile
 
 env:
   PGHOST: localhost

@@ -16,7 +16,7 @@
 -define(PGPASSWORD, os:getenv("PGPASSWORD", "postgres")).
 -define(PGDATABASE, os:getenv("PGDATABASE", "migraterl")).
 
-%-dialyzer({nowarn_function, [init/1]}).
+-dialyzer({nowarn_function, [init/1]}).
 
 %% @doc A default connection, for local testing or CI.
 %% @end
