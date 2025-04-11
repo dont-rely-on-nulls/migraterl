@@ -5,25 +5,17 @@
 %%-------------------------------------------------------------------
 -module(file_utils).
 
--export([read_system_migrations/1, format_bin_content/1, read_directory/1]).
+-export([read_system_migrations/0, format_bin_content/1, read_directory/1]).
 
--include("internal_types.hrl").
--include("lib_types.hrl").
+-include("file_utils.hrl").
+-include("migraterl.hrl").
 
--spec profile_path(Dir :: directory()) -> directory().
-profile_path(Dir) ->
-    filename:dirname(
-        filename:dirname(Dir)
-    ).
-
--spec database_path(ModuleName :: atom(), Dir :: directory()) -> directory().
-database_path(ModuleName, Dir) ->
-    Release = profile_path(Dir),
-    Path = ["rel", ModuleName, "database"],
-    filename:join([Release | Path]).
+-define(PRIV_DIR_MODULE, migraterl).
 
 -spec read_directory(Dir :: directory()) -> Result when
-    Result :: {ok, [filename()]} | error().
+    Error :: {error, read_directory_failure, Reason :: string()},
+    Ok :: {ok, [filename()]},
+    Result :: Ok | Error.
 read_directory(Dir) ->
     case file:list_dir(Dir) of
         {ok, Files} ->
@@ -35,20 +27,24 @@ read_directory(Dir) ->
             {error, read_directory_failure, Message}
     end.
 
--spec read_system_migrations(ModuleName :: atom()) -> Result when
-    Result :: directory() | error().
-read_system_migrations(ModuleName) ->
-    case code:lib_dir(ModuleName) of
+-spec read_system_migrations() -> Result when
+    Error :: {error, read_directory_failure, string()},
+    Ok :: {ok, directory()},
+    Result :: Ok | Error.
+read_system_migrations() ->
+    case code:priv_dir(?PRIV_DIR_MODULE) of
         {error, Reason} ->
             {error, read_directory_failure, Reason};
         Dir ->
-            DatabasePath = database_path(ModuleName, Dir),
-            Path = filename:join(DatabasePath, "system"),
+            Path = filename:join(Dir, "system"),
             {ok, Path}
     end.
 
--spec format_bin_content(Bin :: binary()) -> Result when
-    Result :: {'ok', sql()} | error().
+-spec format_bin_content(Bin) -> Result when
+    Bin :: binary(),
+    Ok :: {ok, sql()},
+    Error :: {error, empty_sql_file, Reason :: string()},
+    Result :: Ok | Error.
 format_bin_content(Bin) ->
     RemoveLineBreaks = binary:split(Bin, [<<"\n">>], [global]),
     Content = lists:map(fun(X) -> unicode:characters_to_list(X) end, RemoveLineBreaks),

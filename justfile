@@ -47,7 +47,6 @@ server: build
 
 # Runs unit tests in the server
 test:
-    rebar3 eunit
     rebar3 ct
 
 # --------

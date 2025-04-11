@@ -7,12 +7,12 @@
 -export([init/1, migrate/2]).
 -export([default_connection/0]).
 
--include("internal_types.hrl").
--include("lib_types.hrl").
+-include("file_utils.hrl").
+-include("migraterl.hrl").
 
 -define(PGHOST, os:getenv("PGHOST", "127.0.0.1")).
 -define(PGPORT, list_to_integer(os:getenv("PGPORT", "5432"))).
--define(PGUSER, os:getenv("PGUSER", "admin")).
+-define(PGUSER, os:getenv("PGUSER", "migraterl")).
 -define(PGPASSWORD, os:getenv("PGPASSWORD", "postgres")).
 -define(PGDATABASE, os:getenv("PGDATABASE", "migraterl")).
 
@@ -21,7 +21,8 @@
 %% @doc A default connection, for local testing or CI.
 %% @end
 -spec default_connection() -> Result when
-    Result :: epgsql:connection() | error().
+    Error :: {error, db_connection_error, Message :: string()},
+    Result :: epgsql:connection() | Error.
 default_connection() ->
     Config =
         #{
@@ -42,8 +43,11 @@ default_connection() ->
 
 %% @doc Applies a migration file to the Database.
 %% @end
--spec upgrade(Conn :: epgsql:connection(), Filename :: filename()) -> Result when
-    Result :: ok | error().
+-spec upgrade(Conn, Filename) -> Result when
+    Conn :: epgsql:connection(),
+    Filename :: filename(),
+    Error :: {error, upgrade_failure, Reason :: string()},
+    Result :: ok | Error.
 upgrade(Conn, Filename) ->
     {ok, Bin} = file:read_file(Filename),
     {ok, SQL} = file_utils:format_bin_content(Bin),
@@ -55,8 +59,12 @@ upgrade(Conn, Filename) ->
 %% @doc Applies a migration file to the Database.
 %% @todo Rewrite this to run everything in a single transaction.
 %% @end
--spec upgrade(Conn :: epgsql:connection(), Version :: integer(), Dir :: directory()) -> Result when
-    Result :: ok | {error, any()}.
+-spec upgrade(Conn, Version, Dir) -> Result when
+    Conn :: epgsql:connection(),
+    Version :: version(),
+    Dir :: directory(),
+    Error :: {error, any(), any()},
+    Result :: ok | Error.
 upgrade(Conn, Version, Dir) ->
     {ok, Files} = file_utils:read_directory(Dir),
     Migrations = lists:nthtail(Version, Files),
@@ -66,9 +74,10 @@ upgrade(Conn, Version, Dir) ->
 %% @doc Creates the required migraterl tables on the Database.
 %% @end
 -spec init(Conn :: epgsql:connection()) -> Result when
-    Result :: ok | error().
+    Error :: {error, any(), any()},
+    Result :: ok | Error.
 init(Conn) ->
-    {ok, Dir} = file_utils:read_system_migrations(?MODULE),
+    {ok, Dir} = file_utils:read_system_migrations(),
     upgrade(Conn, 0, Dir).
 
 %% @doc
@@ -77,12 +86,13 @@ init(Conn) ->
 %% to create it beforehand.
 %% @end
 -spec migrate(Conn :: epgsql:connection(), Dir :: directory()) -> Result when
-    Result :: ok | error().
+    Error :: {error, any(), any()},
+    Result :: ok | Error.
 migrate(Conn, Dir) ->
     {ok, Files} = file_utils:read_directory(Dir),
     Query = """
         SELECT COALESCE(MAX(version),0) as last_version
-        FROM migraterl_history
+        FROM migraterl.history
     """,
     case epqsql:squery(Conn, Query) of
         {error, _} ->
