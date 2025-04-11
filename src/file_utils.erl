@@ -13,7 +13,8 @@
 -define(PRIV_DIR_MODULE, migraterl).
 
 -spec read_directory(Dir :: directory()) -> Result when
-    Error :: {error, read_directory_failure, Reason :: string()},
+    Reason :: string(),
+    Error :: {error, read_directory_failure, Reason},
     Ok :: {ok, [filename()]},
     Result :: Ok | Error.
 read_directory(Dir) ->
