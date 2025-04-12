@@ -13,21 +13,15 @@ on:
         default: false
 
   workflow_dispatch:
+    inputs:
+      PG_VERSION:
+        required: true
+        type: string
 
-  push:
-    branches: [ "master" ]
-    paths:
-      - .github/workflows/**
-      - config/**
-      - include/**
-      - src/**
-      - test/**
-      - priv/**
-      - flake.nix
-      - flake.lock
-      - rebar.config
-      - rebar.lock
-      - justfile
+      CONTINUE_ON_ERROR:
+        required: false
+        type: string
+        default: false
 
 env:
   PGHOST: localhost
@@ -78,25 +72,6 @@ jobs:
             exit 1
           fi
 
-      - name: "[Rebar] Coverage"
-        # We get coverage from the latest pg tests
-        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
-        run: |
-          nix develop .#ci --impure -c rebar3 cover
-
-      - name: "Generate JSON data from .coverage"
-        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
-        uses: shortishly/coverdata@main
-        with:
-          input: ${{ env.COVERAGE_FILE }}
-          output: coverage.json
-
-      - name: "Coverage Badge Data"
-        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
-        id: coverage
-        run: |
-          echo "percentage=$(jq .total coveage.json)" >> $GITHUB_OUTPUT
-
       # Generate SVG badges
       - name: "[Badge] Common Tests"
         uses: emibcn/badge-action@v2
@@ -107,27 +82,3 @@ jobs:
           color: ${{ steps.ct.outputs.status == 'passing' && 'brightgreen' || 'red' }}
           path: ${{ env.BADGE_FILE }}
 
-      - name: "[Badge] Coverage"
-        uses: emibcn/badge-action@v2
-        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
-        with:
-          label: coverage
-          status: ${{ steps.coverage.outputs.percentage }}%
-          color: ${{ steps.coverage.outputs.percentage >= 90 && 'brightgreen' || (steps.coverage.outputs.percentage >= 75 && 'yellow' || 'red') }}
-          path: coverage.svg
-
-      - name: Update Badges
-        uses: actions/upload-artifact@v4
-        if: ${{ github.event_name != 'pull_request' }}
-        with:
-          name: ${{ env.BADGE_NAME }}
-          path: |
-            ${{ env.BADGE_FILE }}
-
-      - name: "Upload Coverage Badges"
-        uses: actions/upload-artifact@v4
-        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
-        with:
-          name: coverage
-          path: |
-            coverage.svg

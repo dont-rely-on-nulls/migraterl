@@ -6,13 +6,11 @@ A simple forward-only migrations library for Erlang, inspired by [DbUp](https://
 
 ## Status
 
-[![[Nix] Build](https://github.com/schonfinkel/migraterl/actions/workflows/build.yml/badge.svg)](https://github.com/schonfinkel/migraterl/actions/workflows/build.yml)
-[![Tests](https://github.com/schonfinkel/migraterl/actions/workflows/tests.yml/badge.svg)](https://github.com/schonfinkel/migraterl/actions/workflows/tests.yml)
-[![Dialyzer](https://github.com/schonfinkel/migraterl/actions/workflows/dialyzer.yml/badge.svg)](https://github.com/schonfinkel/migraterl/actions/workflows/dialyzer.yml)
+[![Pipeline](https://github.com/dont-rely-on-nulls/migraterl/actions/workflows/pipelines.yml/badge.svg)](https://github.com/dont-rely-on-nulls/migraterl/actions/workflows/pipelines.yml)
+
+### Builds
 
 ### Integrations
-
-[![[PostgreSQL] Integration](https://github.com/schonfinkel/migraterl/actions/workflows/postgresql_template.yml/badge.svg)](https://github.com/schonfinkel/migraterl/actions/workflows/postgresql_template.yml)
 
 ## Documentation
 
