@@ -36,7 +36,10 @@ env:
   PGUSER: migraterl
   PGDATABASE: migraterl
   CONTINUE_ON_ERROR: ${{ inputs.CONTINUE_ON_ERROR }}
-  BADGE_FILE: "ct_badge_${{ inputs.PG_VERSION }}.txt"
+  BADGE_NAME: "ct_badge_pg_${{ inputs.PG_VERSION }}"
+  BADGE_FILE: "ct_badge_pg_${{ inputs.PG_VERSION }}.svg"
+  COVERAGE_FILE: "_build/test/cover/ct.coverdata"
+  BADGE_FILE: "coverage.svg"
 
 jobs:
   integrations:
@@ -66,20 +69,67 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@main
 
       - name: "[Rebar] Common Tests"
+        id: ct
         continue-on-error: ${{ fromJSON(env.CONTINUE_ON_ERROR) }}
         run: |
           nix develop .#ci --impure -c just t
           if [ $? -eq 0 ]; then
-            echo "status=passing" > ${{ env.BADGE_FILE }}
+            echo "status=passing" >> $GITHUB_OUTPUT
           else
-            echo "status=passing" > ${{ env.BADGE_FILE }}
+            echo "status=failing" >> $GITHUB_OUTPUT
             exit 1
           fi
+
+      - name: "[Rebar] Coverage"
+        # We get coverage from the latest pg tests
+        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION = '17' }}
+        run: |
+          nix develop .#ci --impure -c rebar3 cover
+
+      - name: "Generate JSON data from .coverage"
+        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION = '17' }}
+        uses: shortishly/coverdata@main
+        with:
+          input: ${{ env.COVERAGE_FILE }}
+          output: coverage.json
+
+      - name: "Coverage Badge Data"
+        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION = '17' }}
+        id: coverage
+        run: |
+          echo "percentage=$(jq .total coveage.json)" >> $GITHUB_OUTPUT
+
+      # Generate SVG badges
+      - name: "[Badge] Common Tests"
+        uses: emibcn/badge-action@v2
+        if: ${{ github.event_name != 'pull_request' }}
+        with:
+          label: compile
+          status: ${{ steps.ct.outputs.status }}
+          color: ${{ steps.ct.outputs.status == 'passing' && 'brightgreen' || 'red' }}
+          path: ${{ env.BADGE_FILE }}
+
+      - name: "[Badge] Coverage"
+        uses: emibcn/badge-action@v2
+        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION = '17' }}
+        with:
+          label: coverage
+          status: ${{ steps.coverage.outputs.percentage }}%
+          color: ${{ steps.coverage.outputs.percentage >= 90 && 'brightgreen' || (steps.coverage.outputs.percentage >= 75 && 'yellow' || 'red') }}
+          path: coverage.svg
 
       - name: Update Badges
         uses: actions/upload-artifact@v4
         if: ${{ github.event_name != 'pull_request' }}
         with:
-          name: ci-badges
+          name: ${{ env.BADGE_NAME }}
           path: |
             ${{ env.BADGE_FILE }}
+
+      - name: "Upload Coverage Badges"
+        uses: actions/upload-artifact@v4
+        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION = '17' }}
+        with:
+          name: coverage
+          path: |
+            coverage.svg

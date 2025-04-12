@@ -36,35 +36,57 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@main
 
       - name: "[Nix] Build"
+        id: nix_build
         run: |
           nix build
 
       - name: "[Rebar] Compile"
+        id: compile
         run: |
           nix develop .#ci --impure -c rebar3 compile
           if [ $? -eq 0 ]; then
-            echo "status=passing" > compile_badge.txt
+            echo "status=passing" >> $GITHUB_OUTPUT
           else
-            echo "status=failing" > compile_badge.txt
+            echo "status=failing" >> $GITHUB_OUTPUT
             exit 1
           fi
 
       - name: "[Rebar] Dialyzer"
+        id: dialyzer
         continue-on-error: true
         run: |
           nix develop .#ci --impure -c rebar3 dialyzer
           if [ $? -eq 0 ]; then
-            echo "status=passing" > dialyzer_badge.txt
+            echo "status=passing" >> $GITHUB_OUTPUT
           else
-            echo "status=failing" > dialyzer_badge.txt
+            echo "status=failing" >> $GITHUB_OUTPUT
             exit 1
           fi
 
-      - name: Update Badges
+      # Generate SVG badges
+      - name: "[Badge] Compile"
+        uses: emibcn/badge-action@v2
+        if: ${{ github.event_name != 'pull_request' }}
+        with:
+          label: compile
+          status: ${{ steps.compile.outputs.status }}
+          color: ${{ steps.compile.outputs.status == 'passing' && 'brightgreen' || 'red' }}
+          path: compile-badge.svg
+
+      - name: "[Badge] Dialyzer"
+        uses: emibcn/badge-action@v2
+        if: ${{ github.event_name != 'pull_request' }}
+        with:
+          label: dialyzer
+          status: ${{ steps.dialyzer.outputs.status }}
+          color: ${{ steps.dialyzer.outputs.status == 'passing' && 'brightgreen' || 'red' }}
+          path: dialyzer-badge.svg
+
+      - name: Upload SVG Badges
         uses: actions/upload-artifact@v4
         if: ${{ github.event_name != 'pull_request' }}
         with:
-          name: ci-badges
+          name: svg-badges
           path: |
-            compile_badge.txt
-            dialyzer_badge.txt
+            compile-badge.svg
+            dialyzer-badge.svg
