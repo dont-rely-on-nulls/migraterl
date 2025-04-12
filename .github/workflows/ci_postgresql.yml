@@ -75,23 +75,10 @@ jobs:
       # Generate SVG badges
       - name: "[Badge] Common Tests"
         uses: emibcn/badge-action@v2
-        #if: ${{ github.event_name != 'pull_request' }}
+        if: ${{ github.event_name != 'pull_request' }}
         with:
           label: compile
           status: ${{ steps.ct.outputs.status }}
           color: ${{ steps.ct.outputs.status == 'passing' && 'brightgreen' || 'red' }}
           path: ${{ env.BADGE_FILE }}
 
-      - name: Update Badges
-        uses: actions/upload-artifact@v4
-        id: upload_01
-        #if: ${{ github.event_name != 'pull_request' }}
-        with:
-          name: ${{ env.BADGE_NAME }}
-          overwrite: true
-          path: |
-            ${{ env.BADGE_FILE }}
-
-      - name: "Output artifact IDs"
-        run: |
-          echo "Artifact ID is ${{ steps.upload_01.outputs.artifact-id }}"

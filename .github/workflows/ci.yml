@@ -68,11 +68,3 @@ jobs:
           color: ${{ steps.dialyzer.outputs.status == 'passing' && 'brightgreen' || 'red' }}
           path: dialyzer-badge.svg
 
-      - name: Upload SVG Badges
-        uses: actions/upload-artifact@v4
-        if: ${{ github.event_name != 'pull_request' }}
-        with:
-          name: svg-badges
-          path: |
-            compile-badge.svg
-            dialyzer-badge.svg
