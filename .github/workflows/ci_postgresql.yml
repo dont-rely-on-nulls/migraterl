@@ -36,6 +36,7 @@ env:
   PGUSER: migraterl
   PGDATABASE: migraterl
   CONTINUE_ON_ERROR: ${{ inputs.CONTINUE_ON_ERROR }}
+  BADGE_FILE: "ct_badge_${{ inputs.PG_VERSION }}.txt"
 
 jobs:
   integrations:
@@ -69,9 +70,9 @@ jobs:
         run: |
           nix develop .#ci --impure -c just t
           if [ $? -eq 0 ]; then
-            echo "status=passing" > ct_badge.txt
+            echo "status=passing" > ${{ env.BADGE_FILE }}
           else
-            echo "status=failing" > ct_badge.txt
+            echo "status=passing" > ${{ env.BADGE_FILE }}
             exit 1
           fi
 
@@ -80,4 +81,4 @@ jobs:
         with:
           name: ci-badges
           path: |
-            ct_badge.txt
+            ${{ env.BADGE_FILE }}
