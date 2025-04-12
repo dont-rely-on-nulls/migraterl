@@ -3,11 +3,12 @@ set dotenv-load := true
 
 # Application
 
-dbuser := "admin"
+dbuser := "migraterl"
 dbname := "migraterl"
-database := justfile_directory() + "/migrations"
-src := justfile_directory() + "/src"
-test := justfile_directory() + "/test"
+src_dir := justfile_directory() + "/src"
+test_dir := justfile_directory() + "/test"
+
+alias t := test
 
 # Lists all availiable targets
 default:
@@ -19,7 +20,7 @@ default:
 
 # Login into the local Database
 db:
-    psql -U {{ dbuser }} {{ dbname }}
+    psql -h localhost -p 5432 -U {{ dbuser }} {{ dbname }}
 
 # Bootstraps the local nix-based postgres server
 pg:
@@ -47,8 +48,8 @@ server: build
 
 # Runs unit tests in the server
 test:
-    rebar3 eunit
     rebar3 ct
+    rebar3 cover
 
 # --------
 # Releases

@@ -1,5 +1,5 @@
 {
-  description = "";
+  description = "Erlang + Nix + PG Environment";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -47,12 +47,14 @@
           CoreServices
         ];
 
+        tooling =
+          with pkgs;
+          [ just ] ++ lib.optionals stdenv.isLinux linuxPkgs ++ lib.optionals stdenv.isDarwin darwinPkgs;
+
         # Erlang
         erlang = pkgs.erlang;
         app_version = "0.1.0";
-        erl_app = "migraterl";
-        pg_admin_user = "admin";
-        pg_admin_password = "postgres";
+        app_name = "migraterl";
 
         mkEnvVars = pkgs: erl: {
           LOCALE_ARCHIVE = pkgs.lib.optionalString pkgs.stdenv.isLinux "${pkgs.glibcLocales}/lib/locale/locale-archive";
@@ -79,7 +81,7 @@
               };
             in
             pkgs.beamPackages.rebar3Relx {
-              pname = erl_app;
+              pname = app_name;
               version = app_version;
               src = pkgs.lib.cleanSource ./.;
               releaseType = "release";
@@ -103,6 +105,8 @@
             buildInputs = with pkgs; [
               erlang
               just
+              libpq
+              rebar3
             ];
           };
 
@@ -110,65 +114,9 @@
           default = devenv.lib.mkShell {
             inherit inputs pkgs;
             modules = [
-              (
-                { pkgs, lib, ... }:
-                {
-                  packages =
-                    with pkgs;
-                    [
-                      just
-                      sqls
-                    ]
-                    ++ lib.optionals stdenv.isLinux (linuxPkgs)
-                    ++ lib.optionals stdenv.isDarwin darwinPkgs;
-
-                  languages.erlang = {
-                    enable = true;
-                    package = erlang;
-                  };
-
-                  env = mkEnvVars pkgs erlang;
-
-                  scripts = {
-                    db.exec = "just db";
-                  };
-
-                  enterShell = ''
-                    echo "Starting Development Environment..."
-                  '';
-
-                  services.postgres = {
-                    enable = true;
-                    package = pkgs.postgresql_17;
-                    extensions = ext: [
-                      ext.periods
-                    ];
-                    initdbArgs = [
-                      "--locale=C"
-                      "--encoding=UTF8"
-                    ];
-                    settings = {
-                      shared_preload_libraries = "pg_stat_statements";
-                      # pg_stat_statements config, nested attr sets need to be
-                      # converted to strings, otherwise postgresql.conf fails
-                      # to be generated.
-                      compute_query_id = "on";
-                      "pg_stat_statements.max" = 10000;
-                      "pg_stat_statements.track" = "all";
-                    };
-                    initialDatabases = [
-                      { name = erl_app; }
-                    ];
-                    port = 5432;
-                    listen_addresses = "127.0.0.1";
-                    initialScript = ''
-                      CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
-                      CREATE ROLE ${pg_admin_user} WITH LOGIN SUPERUSER CREATEROLE PASSWORD '${pg_admin_password}';
-                      GRANT ALL PRIVILEGES ON DATABASE ${erl_app} to ${pg_admin_user};
-                    '';
-                  };
-                }
-              )
+              (import ./devshell.nix {
+                inherit pkgs tooling app_name;
+              })
             ];
           };
         };

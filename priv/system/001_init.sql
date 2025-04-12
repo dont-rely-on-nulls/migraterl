@@ -1,4 +1,6 @@
-CREATE TABLE IF NOT EXISTS migraterl_history (
+CREATE SCHEMA IF NOT EXISTS migraterl;
+
+CREATE TABLE IF NOT EXISTS migraterl.history (
     version BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     filename TEXT UNIQUE CONSTRAINT length_upper_bound CHECK (
         LENGTH(filename) <= 255
