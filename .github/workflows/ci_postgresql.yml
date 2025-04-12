@@ -78,6 +78,7 @@ jobs:
 
       - name: Update Badges
         uses: actions/upload-artifact@v4
+        if: ${{ github.event_name != 'pull_request' }}
         with:
           name: ci-badges
           path: |
