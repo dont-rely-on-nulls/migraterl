@@ -126,7 +126,7 @@ jobs:
 
       - name: "Upload Coverage Badges"
         uses: actions/upload-artifact@v4
-        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION = '17' }}
+        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
         with:
           name: coverage
           path: |
