@@ -101,15 +101,6 @@ jobs:
           color: ${{ steps.ct.outputs.status == 'passing' && 'brightgreen' || 'red' }}
           path: ${{ env.BADGE_FILE }}
 
-      - name: "[Badge] Coverage"
-        uses: emibcn/badge-action@v2
-        #if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
-        with:
-          label: coverage
-          status: ${{ steps.coverage.outputs.percentage }}%
-          color: ${{ steps.coverage.outputs.percentage >= 90 && 'brightgreen' || (steps.coverage.outputs.percentage >= 75 && 'yellow' || 'red') }}
-          path: coverage.svg
-
       - name: Update Badges
         uses: actions/upload-artifact@v4
         id: upload_01
@@ -120,16 +111,6 @@ jobs:
           path: |
             ${{ env.BADGE_FILE }}
 
-      - name: "Upload Coverage Badges"
-        uses: actions/upload-artifact@v4
-        id: upload_02
-        #if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
-        with:
-          name: coverage
-          overwrite: true
-          path: |
-            coverage.svg
-
       - name: "Output artifact IDs"
         run: |
-          echo "Artifact ID is ${{ steps.upload_02.outputs.artifact-id }}"
+          echo "Artifact ID is ${{ steps.upload_01.outputs.artifact-id }}"
