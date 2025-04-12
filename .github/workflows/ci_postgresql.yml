@@ -38,8 +38,6 @@ env:
   CONTINUE_ON_ERROR: ${{ inputs.CONTINUE_ON_ERROR }}
   BADGE_NAME: "ct_badge_pg_${{ inputs.PG_VERSION }}"
   BADGE_FILE: "ct_badge_pg_${{ inputs.PG_VERSION }}.svg"
-  COVERAGE_FILE: "_build/test/cover/ct.coverdata"
-  BADGE_FILE: "coverage.svg"
 
 jobs:
   integrations:
