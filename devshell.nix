@@ -3,6 +3,7 @@
   tooling ? [ ],
   app_name ? "app_user",
 }:
+rec
 {
   packages = tooling;
 
@@ -13,7 +14,16 @@
   scripts = {
     build.exec = "rebar3 compile";
     shell.exec = "rebar3 shell";
-    test.exec = "just test";
+    test.exec = "just t";
+  };
+
+  env = {
+    # https://www.erlang.org/doc/man/kernel_app.html
+    ERL_AFLAGS = "-kernel shell_history enabled";
+    # Devenv sets this to something else, so I'll be
+    # using "PG_HOST" instead.
+    # https://www.postgresql.org/docs/7.0/libpq-envars.htm
+    PG_HOST = "127.0.0.1";
   };
 
   enterShell = ''
@@ -48,7 +58,7 @@
       }
     ];
     port = 5432;
-    listen_addresses = "127.0.0.1";
+    listen_addresses = env.PG_HOST;
     initialScript = ''
       CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
       CREATE ROLE postgres WITH SUPERUSER LOGIN PASSWORD 'postgres';

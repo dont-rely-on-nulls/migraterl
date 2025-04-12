@@ -10,13 +10,11 @@
 -include("file_utils.hrl").
 -include("migraterl.hrl").
 
--define(PGHOST, os:getenv("PGHOST", "127.0.0.1")).
+-define(PGHOST, os:getenv("PG_HOST", "127.0.0.1")).
 -define(PGPORT, list_to_integer(os:getenv("PGPORT", "5432"))).
 -define(PGUSER, os:getenv("PGUSER", "migraterl")).
--define(PGPASSWORD, os:getenv("PGPASSWORD", "postgres")).
+-define(PGPASSWORD, os:getenv("PGPASSWORD", "migraterl")).
 -define(PGDATABASE, os:getenv("PGDATABASE", "migraterl")).
-
--dialyzer({nowarn_function, [init/1]}).
 
 %% @doc A default connection, for local testing or CI.
 %% @end
@@ -31,13 +29,13 @@ default_connection() ->
             username => ?PGUSER,
             password => ?PGPASSWORD,
             database => ?PGDATABASE,
-            timeout => 4000
+            timeout => 10000
         },
     case epgsql:connect(Config) of
         {ok, Conn} ->
             Conn;
         Otherwise ->
-            Message = io_lib:format("Error while setting connection ~p~n", Otherwise),
+            Message = io_lib:format("Error while setting connection ~p~n", [Otherwise]),
             {error, db_connection_error, Message}
     end.
 
