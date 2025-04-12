@@ -80,19 +80,19 @@ jobs:
 
       - name: "[Rebar] Coverage"
         # We get coverage from the latest pg tests
-        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION = '17' }}
+        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
         run: |
           nix develop .#ci --impure -c rebar3 cover
 
       - name: "Generate JSON data from .coverage"
-        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION = '17' }}
+        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
         uses: shortishly/coverdata@main
         with:
           input: ${{ env.COVERAGE_FILE }}
           output: coverage.json
 
       - name: "Coverage Badge Data"
-        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION = '17' }}
+        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
         id: coverage
         run: |
           echo "percentage=$(jq .total coveage.json)" >> $GITHUB_OUTPUT
@@ -109,7 +109,7 @@ jobs:
 
       - name: "[Badge] Coverage"
         uses: emibcn/badge-action@v2
-        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION = '17' }}
+        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
         with:
           label: coverage
           status: ${{ steps.coverage.outputs.percentage }}%
