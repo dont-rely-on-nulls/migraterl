@@ -13,21 +13,15 @@ on:
         default: false
 
   workflow_dispatch:
+    inputs:
+      PG_VERSION:
+        required: true
+        type: string
 
-  push:
-    branches: [ "master" ]
-    paths:
-      - .github/workflows/**
-      - config/**
-      - include/**
-      - src/**
-      - test/**
-      - priv/**
-      - flake.nix
-      - flake.lock
-      - rebar.config
-      - rebar.lock
-      - justfile
+      CONTINUE_ON_ERROR:
+        required: false
+        type: string
+        default: false
 
 env:
   PGHOST: localhost

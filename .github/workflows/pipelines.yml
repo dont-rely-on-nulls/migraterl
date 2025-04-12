@@ -2,6 +2,22 @@ name: "Pipeline"
 
 on:
   workflow_dispatch:
+
+  push:
+    branches: [ "master" ]
+    paths:
+      - .github/workflows/**
+      - config/**
+      - include/**
+      - src/**
+      - test/**
+      - priv/**
+      - flake.nix
+      - flake.lock
+      - rebar.config
+      - rebar.lock
+      - justfile
+
   pull_request:
     branches: [ "*" ]
     paths:
@@ -10,6 +26,7 @@ on:
       - include/**
       - src/**
       - test/**
+      - priv/**
       - flake.nix
       - flake.lock
       - rebar.config
