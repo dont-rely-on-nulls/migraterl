@@ -6,9 +6,10 @@ on:
     branches: [ "*" ]
     paths:
       - .github/workflows/**
+      - config/**
+      - include/**
       - src/**
       - test/**
-      - database/**
       - flake.nix
       - flake.lock
       - rebar.config
@@ -25,8 +26,8 @@ jobs:
 
   integrations-pg:
     name: "[PostgreSQL] Integration"
-    needs: dialyzer
-    uses: ./.github/workflows/postgresql.yml
+    needs: ci
+    uses: ./.github/workflows/ci_postgresql.yml
 
     strategy:
       fail-fast: true
@@ -36,9 +37,7 @@ jobs:
       # My plan is to always support the last 3 versions
       # of postgresql
       matrix:
-        # TODO: uncomment this later
-        # versions: [ { pg: "14"}, { pg: "15"}, { pg: "16"} ]
-        versions: [ { pg: "16"} ]
+        versions: [ { pg: "15"}, { pg: "16"} ]
         experimental: [false]
         include:
           # It's ok to error on the latest release
