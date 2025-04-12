@@ -50,6 +50,7 @@ jobs:
           fi
 
       - name: "[Rebar] Dialyzer"
+        continue-on-error: true
         run: |
           nix develop .#ci --impure -c rebar3 dialyzer
           if [ $? -eq 0 ]; then

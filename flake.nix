@@ -105,6 +105,8 @@
             buildInputs = with pkgs; [
               erlang
               just
+              libpq
+              rebar3
             ];
           };
 
