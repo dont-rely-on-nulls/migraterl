@@ -54,7 +54,7 @@ jobs:
       # My plan is to always support the last 3 versions
       # of postgresql
       matrix:
-        versions: [ { pg: "15"}, { pg: "16"} ]
+        versions: [ { pg: "16"} ]
         experimental: [false]
         include:
           # It's ok to error on the latest release
