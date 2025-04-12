@@ -74,19 +74,19 @@ jobs:
 
       - name: "[Rebar] Coverage"
         # We get coverage from the latest pg tests
-        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
+        #if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
         run: |
           nix develop .#ci --impure -c rebar3 cover
 
       - name: "Generate JSON data from .coverage"
-        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
+        #if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
         uses: shortishly/coverdata@main
         with:
           input: ${{ env.COVERAGE_FILE }}
           output: coverage.json
 
       - name: "Coverage Badge Data"
-        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
+        #if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
         id: coverage
         run: |
           echo "percentage=$(jq .total coveage.json)" >> $GITHUB_OUTPUT
@@ -94,7 +94,7 @@ jobs:
       # Generate SVG badges
       - name: "[Badge] Common Tests"
         uses: emibcn/badge-action@v2
-        if: ${{ github.event_name != 'pull_request' }}
+        #if: ${{ github.event_name != 'pull_request' }}
         with:
           label: compile
           status: ${{ steps.ct.outputs.status }}
@@ -103,7 +103,7 @@ jobs:
 
       - name: "[Badge] Coverage"
         uses: emibcn/badge-action@v2
-        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
+        #if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
         with:
           label: coverage
           status: ${{ steps.coverage.outputs.percentage }}%
@@ -112,16 +112,24 @@ jobs:
 
       - name: Update Badges
         uses: actions/upload-artifact@v4
-        if: ${{ github.event_name != 'pull_request' }}
+        id: upload_01
+        #if: ${{ github.event_name != 'pull_request' }}
         with:
           name: ${{ env.BADGE_NAME }}
+          overwrite: true
           path: |
             ${{ env.BADGE_FILE }}
 
       - name: "Upload Coverage Badges"
         uses: actions/upload-artifact@v4
-        if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
+        id: upload_02
+        #if: ${{ github.event_name != 'pull_request' && inputs.PG_VERSION == '17' }}
         with:
           name: coverage
+          overwrite: true
           path: |
             coverage.svg
+
+      - name: "Output artifact IDs"
+        run: |
+          echo "Artifact ID is ${{ steps.upload_02.outputs.artifact-id }}"
