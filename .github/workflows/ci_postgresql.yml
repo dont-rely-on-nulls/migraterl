@@ -67,7 +67,7 @@ jobs:
       - name: "[Rebar] Common Tests"
         continue-on-error: ${{ fromJSON(env.CONTINUE_ON_ERROR) }}
         run: |
-          nix develop .#ci --impure -c just ct
+          nix develop .#ci --impure -c just t
           if [ $? -eq 0 ]; then
             echo "status=passing" > ct_badge.txt
           else
