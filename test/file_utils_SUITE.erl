@@ -26,7 +26,7 @@ end_per_testcase(_, _Config) ->
 format_bin_content_test(Config) ->
     TabId = ?config(fbc_data, Config),
     [{valid_data, ValidData}] = ets:lookup(TabId, valid_data),
-    {ok, "123"} = file_utils:format_bin_content(ValidData),
+    {ok, ["123;"]} = file_utils:format_bin_content(ValidData),
     [{invalid_data, InvalidData}] = ets:lookup(TabId, invalid_data),
     {error, empty_sql_file, _} = file_utils:format_bin_content(InvalidData).
 

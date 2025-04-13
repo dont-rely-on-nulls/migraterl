@@ -39,19 +39,36 @@ default_connection() ->
             {error, db_connection_error, Message}
     end.
 
-%% @doc Applies a migration file to the Database.
+%% @doc
+%% Collects all SQL statements from a list for Files
 %% @end
--spec upgrade(Conn, Filename) -> Result when
-    Conn :: epgsql:connection(),
-    Filename :: filename(),
-    Error :: {error, upgrade_failure, Reason :: string()},
-    Result :: ok | Error.
-upgrade(Conn, Filename) ->
+aggregate([], Acc) ->
+    Acc;
+aggregate([Filename | Files], Acc) ->
     {ok, Bin} = file:read_file(Filename),
     {ok, SQL} = file_utils:format_bin_content(Bin),
-    case epgsql:squery(Conn, SQL) of
-        {ok, _, _} -> ok;
-        Otherwise -> {error, upgrade_failure, Otherwise}
+    aggregate(Files, lists:append(Acc, SQL)).
+
+%% @doc
+%% Applies a list of SQLStatements, either works or sends a rollback (with a reason) to eqpgsql.
+%% @end
+-spec run(Conn, SQLStatements) -> Result when
+    Conn :: epgsql:connection(),
+    SQLStatements :: [string()],
+    Reason :: string(),
+    Error :: {rollback, Reason},
+    Result :: ok | Error.
+run(_, []) ->
+    ok;
+run(Conn, [Query | Rest]) ->
+    case epgsql:squery(Conn, Query) of
+        {ok, _, _} ->
+            run(Conn, Rest);
+        {ok, _} ->
+            run(Conn, Rest);
+        {error, Reason} ->
+            logger:error("[RUN] ~p~n ~p~n", [Query, Rest]),
+            {rollback, Reason}
     end.
 
 %% @doc Applies a migration file to the Database.
@@ -61,13 +78,22 @@ upgrade(Conn, Filename) ->
     Conn :: epgsql:connection(),
     Version :: version(),
     Dir :: directory(),
-    Error :: {error, any(), any()},
-    Result :: ok | Error.
+    Reason :: string(),
+    Other :: term(),
+    Ok :: {ok, Other},
+    Error :: {error, Reason},
+    Result :: Ok | Error.
 upgrade(Conn, Version, Dir) ->
     {ok, Files} = file_utils:read_directory(Dir),
     Migrations = lists:nthtail(Version, Files),
-    _X = lists:map(fun(F) -> upgrade(Conn, F) end, Migrations),
-    ok.
+    Statements = aggregate(Migrations, []),
+    Fun = fun(_) -> run(Conn, Statements) end,
+    case epgsql:with_transaction(Conn, Fun) of
+        {rollback, Reason} -> 
+            logger:error("[UPGRADE] ~p~n", [Reason]),
+            {error, Reason};
+        _Other -> ok
+    end.
 
 %% @doc Creates the required migraterl tables on the Database.
 %% @end
