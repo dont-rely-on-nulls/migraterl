@@ -19,7 +19,8 @@
 %% @doc A default connection, for local testing or CI.
 %% @end
 -spec default_connection() -> Result when
-    Error :: {error, db_connection_error, Message :: string()},
+    Reason :: string(),
+    Error :: {error, Reason},
     Result :: epgsql:connection() | Error.
 default_connection() ->
     Config =
@@ -36,7 +37,7 @@ default_connection() ->
             Conn;
         Otherwise ->
             Message = io_lib:format("Error while setting connection ~p~n", [Otherwise]),
-            {error, db_connection_error, Message}
+            {error, Message}
     end.
 
 %% @doc
@@ -82,7 +83,6 @@ run(Conn, [Query | Rest]) ->
                 true ->
                     run(Conn, Rest);
                 false ->
-                    logger:error("[RUN] LIST: ~p~n", [C]),
                     {rollback, "Bad match while parsing list"}
             end;
         {error, Reason} ->
@@ -109,7 +109,7 @@ upgrade(Conn, Version, Dir) ->
     Fun = fun(_) -> run(Conn, Statements) end,
     case epgsql:with_transaction(Conn, Fun) of
         {rollback, Reason} ->
-            logger:error("[UPGRADE] ~p~n", [Reason]),
+            logger:error("[UPGRADE] ERROR: ~p~n", [Reason]),
             {error, Reason};
         _Other ->
             ok
@@ -139,8 +139,6 @@ migrate(Conn, Dir) ->
             ok = init(Conn),
             upgrade(Conn, 0, Dir);
         {ok, _, [{Version}]} ->
-            Reason = io_lib:format("[Migrate] ~p~n", Version),
-            logger:error(Reason),
             upgrade(Conn, binary_to_integer(Version), Dir);
         Otherwise ->
             Reason = io_lib:format("[Migrate] Unmapped Case: ~p~n", Otherwise),

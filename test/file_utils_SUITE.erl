@@ -28,7 +28,7 @@ format_bin_content_test(Config) ->
     [{valid_data, ValidData}] = ets:lookup(TabId, valid_data),
     {ok, "SELECT 1; SELECT 2;"} = file_utils:format_bin_content(ValidData),
     [{invalid_data, InvalidData}] = ets:lookup(TabId, invalid_data),
-    {error, empty_sql_file, _} = file_utils:format_bin_content(InvalidData).
+    {error, _} = file_utils:format_bin_content(InvalidData).
 
 % read_system_migrations test cases
 read_system_migrations_test(_Config) ->

@@ -14,7 +14,7 @@
 
 -spec read_directory(Dir :: directory()) -> Result when
     Reason :: string(),
-    Error :: {error, read_directory_failure, Reason},
+    Error :: {error, Reason},
     Ok :: {ok, [filename()]},
     Result :: Ok | Error.
 read_directory(Dir) ->
@@ -26,19 +26,19 @@ read_directory(Dir) ->
             Sorted = lists:sort(Filter),
             {ok, Sorted};
         _ ->
-            Message = io_lib:format("Error while reading directory ~p~n", [Dir]),
-            logger:error(Message),
-            {error, read_directory_failure, Message}
+            Reason = io_lib:format("Error while reading directory ~p~n", [Dir]),
+            {error, Reason}
     end.
 
 -spec read_system_migrations() -> Result when
-    Error :: {error, read_directory_failure, string()},
+    Reason :: string(),
+    Error :: {error, Reason},
     Ok :: {ok, directory()},
     Result :: Ok | Error.
 read_system_migrations() ->
     case code:priv_dir(?PRIV_DIR_MODULE) of
         {error, Reason} ->
-            {error, read_directory_failure, Reason};
+            {error, Reason};
         Dir ->
             Path = filename:join(Dir, "system"),
             {ok, Path}
@@ -47,15 +47,16 @@ read_system_migrations() ->
 -spec format_bin_content(Bin) -> Result when
     Bin :: binary(),
     Ok :: {ok, sql()},
-    Error :: {error, empty_sql_file, Reason :: string()},
+    Reason :: string(),
+    Error :: {error, Reason},
     Result :: Ok | Error.
 format_bin_content(Bin) ->
     RemoveLineBreaks = binary:replace(Bin, <<"\n">>, <<" ">>, [global]),
     SQL = string:strip(unicode:characters_to_list(RemoveLineBreaks)),
     case string:is_empty(SQL) of
         true ->
-            Message = "The provided file is empty",
-            {error, empty_sql_file, Message};
+            Reason = "The provided file is empty",
+            {error, Reason};
         false ->
             {ok, SQL}
     end.
