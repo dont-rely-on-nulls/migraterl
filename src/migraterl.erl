@@ -42,12 +42,10 @@ default_connection() ->
 %% @doc
 %% Collects all SQL statements from a list for Files
 %% @end
-aggregate([], Acc) ->
-    Acc;
-aggregate([Filename | Files], Acc) ->
+aggregate(Filename) ->
     {ok, Bin} = file:read_file(Filename),
     {ok, SQL} = file_utils:format_bin_content(Bin),
-    aggregate(Files, lists:append(Acc, SQL)).
+    SQL.
 
 %% @doc
 %% Applies a list of SQLStatements, either works or sends a rollback (with a reason) to eqpgsql.
@@ -67,7 +65,7 @@ run(Conn, [Query | Rest]) ->
         {ok, _} ->
             run(Conn, Rest);
         {error, Reason} ->
-            logger:error("[RUN] ~p~n ~p~n", [Query, Rest]),
+            logger:error("[RUN] QUERY: ~p~n REST: ~p~n", [Query, Rest]),
             {rollback, Reason}
     end.
 
@@ -86,7 +84,7 @@ run(Conn, [Query | Rest]) ->
 upgrade(Conn, Version, Dir) ->
     {ok, Files} = file_utils:read_directory(Dir),
     Migrations = lists:nthtail(Version, Files),
-    Statements = aggregate(Migrations, []),
+    Statements = lists:map(fun (F) -> aggregate(F) end, Migrations),
     Fun = fun(_) -> run(Conn, Statements) end,
     case epgsql:with_transaction(Conn, Fun) of
         {rollback, Reason} -> 

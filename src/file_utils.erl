@@ -47,13 +47,12 @@ read_system_migrations() ->
     Error :: {error, empty_sql_file, Reason :: string()},
     Result :: Ok | Error.
 format_bin_content(Bin) ->
-    RemoveLineBreaks = binary:replace(Bin, <<"\n">>, <<>>, [global]),
-    L = binary:split(RemoveLineBreaks, <<";">>, [global]),
-    SQL = lists:map(fun(X) -> string:concat(unicode:characters_to_list(X), ";") end, L),
-    case SQL of
-        [";"] ->
+    RemoveLineBreaks = binary:replace(Bin, <<"\n">>, <<" ">>, [global]),
+    SQL = string:strip(unicode:characters_to_list(RemoveLineBreaks)),
+    case string:is_empty(SQL) of
+        true ->
             Message = "The provided file is empty",
             {error, empty_sql_file, Message};
-        _ ->
+        false ->
             {ok, SQL}
     end.

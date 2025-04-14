@@ -20,8 +20,9 @@ logs
 rebar3.crashdump
 *~
 
-# Nix
+# Nix + Other
 .devenv
 .direnv
 .envrc
 result
+.env
