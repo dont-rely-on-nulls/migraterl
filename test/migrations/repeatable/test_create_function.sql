@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION drop_all()
+CREATE OR REPLACE FUNCTION test_schema.drop_all()
 RETURNS VOID AS
 $$
    DECLARE rec RECORD; 
