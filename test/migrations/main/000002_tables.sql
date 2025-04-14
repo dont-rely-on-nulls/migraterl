@@ -1,7 +1,7 @@
 -- Types
 DO $$ BEGIN
-    IF to_regtype('example.status') IS NULL THEN
-        CREATE TYPE example.status AS ENUM(
+    IF to_regtype('test_schema.status') IS NULL THEN
+        CREATE TYPE test_schema.status AS ENUM(
             'READY',
             'RUNNING',
             'SUCCEEDED',
@@ -11,8 +11,8 @@ DO $$ BEGIN
 END $$;
 
 -- Tables
-CREATE TABLE IF NOT EXISTS example (
+CREATE TABLE IF NOT EXISTS test_schema.example_table (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    status BUILD.STATUS NOT NULL,
+    status test_schema.STATUS NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );

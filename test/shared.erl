@@ -2,7 +2,7 @@
 
 -export([get_test_directory/1]).
 
-get_test_directory(Module)->
+get_test_directory(Module) ->
     Dir = code:lib_dir(Module),
     L = filename:split(Dir),
     % small sanity check, if someone changes the main module

@@ -37,4 +37,5 @@ migrate_test(Config) ->
     TabId = ?config(conn_data, Config),
     [{connection, Conn}] = ets:lookup(TabId, connection),
     [{migration_dir, Dir}] = ets:lookup(TabId, migration_dir),
-    ok = migraterl:migrate(Conn, Dir).
+    MainPath = filename:join([Dir, "main"]),
+    ok = migraterl:migrate(Conn, MainPath).

@@ -19,12 +19,15 @@
     Result :: Ok | Error.
 read_directory(Dir) ->
     case file:list_dir(Dir) of
-        {ok, Files} ->
-            List = lists:map(fun(File) -> filename:join(Dir, File) end, Files),
-            Sorted = lists:sort(List),
+        {ok, Files} when is_list(Files) ->
+            List = lists:map(fun(File) -> filename:absname(filename:join([Dir, File])) end, Files),
+            Predicate = fun(File) -> filename:extension(File) =:= ".sql" end,
+            Filter = lists:filter(Predicate, List),
+            Sorted = lists:sort(Filter),
             {ok, Sorted};
-        Otherwise ->
-            Message = io_lib:format("Error while reading directory ~p at ~p~n", Dir, Otherwise),
+        _ ->
+            Message = io_lib:format("Error while reading directory ~p~n", [Dir]),
+            logger:error(Message),
             {error, read_directory_failure, Message}
     end.
 

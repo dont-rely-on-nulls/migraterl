@@ -48,6 +48,18 @@ aggregate(Filename) ->
     SQL.
 
 %% @doc
+%% Check wether the output of epgsql
+%% @end
+proper([]) ->
+    true;
+proper([H | T]) ->
+    case H of
+        {ok, _} -> proper(T);
+        {ok, _, _} -> proper(T);
+        _ -> false
+    end.
+
+%% @doc
 %% Applies a list of SQLStatements, either works or sends a rollback (with a reason) to eqpgsql.
 %% @end
 -spec run(Conn, SQLStatements) -> Result when
@@ -59,11 +71,20 @@ aggregate(Filename) ->
 run(_, []) ->
     ok;
 run(Conn, [Query | Rest]) ->
-    case epgsql:squery(Conn, Query) of
+    Out = epgsql:squery(Conn, Query),
+    case Out of
         {ok, _, _} ->
             run(Conn, Rest);
         {ok, _} ->
             run(Conn, Rest);
+        C when is_list(C) ->
+            case proper(C) of
+                true ->
+                    run(Conn, Rest);
+                false ->
+                    logger:error("[RUN] LIST: ~p~n", [C]),
+                    {rollback, "Bad match while parsing list"}
+            end;
         {error, Reason} ->
             logger:error("[RUN] QUERY: ~p~n REST: ~p~n", [Query, Rest]),
             {rollback, Reason}
@@ -84,13 +105,14 @@ run(Conn, [Query | Rest]) ->
 upgrade(Conn, Version, Dir) ->
     {ok, Files} = file_utils:read_directory(Dir),
     Migrations = lists:nthtail(Version, Files),
-    Statements = lists:map(fun (F) -> aggregate(F) end, Migrations),
+    Statements = lists:map(fun(F) -> aggregate(F) end, Migrations),
     Fun = fun(_) -> run(Conn, Statements) end,
     case epgsql:with_transaction(Conn, Fun) of
-        {rollback, Reason} -> 
+        {rollback, Reason} ->
             logger:error("[UPGRADE] ~p~n", [Reason]),
             {error, Reason};
-        _Other -> ok
+        _Other ->
+            ok
     end.
 
 %% @doc Creates the required migraterl tables on the Database.
@@ -111,19 +133,17 @@ init(Conn) ->
     Error :: {error, any(), any()},
     Result :: ok | Error.
 migrate(Conn, Dir) ->
-    {ok, Files} = file_utils:read_directory(Dir),
-    Query = """
-        SELECT COALESCE(MAX(version),0) as last_version
-        FROM migraterl.history
-    """,
-    case epqsql:squery(Conn, Query) of
-        {error, _} ->
+    Query = "SELECT COALESCE(MAX(version),0) as last_version FROM migraterl.history",
+    case epgsql:squery(Conn, Query) of
+        {error, {error, error, <<"42P01">>, undefined_table, _, _}} ->
             ok = init(Conn),
-            upgrade(Conn, 0, Files);
+            upgrade(Conn, 0, Dir);
         {ok, _, [{Version}]} ->
-            upgrade(Conn, binary_to_integer(Version), Files);
+            Reason = io_lib:format("[Migrate] ~p~n", Version),
+            logger:error(Reason),
+            upgrade(Conn, binary_to_integer(Version), Dir);
         Otherwise ->
-            Message = io_lib:format("Unmapped Case: ~p~n", Otherwise),
-            logger:error(Message),
-            {error, unmapped_case, Message}
+            Reason = io_lib:format("[Migrate] Unmapped Case: ~p~n", Otherwise),
+            logger:error(Reason),
+            {rollback, Reason}
     end.

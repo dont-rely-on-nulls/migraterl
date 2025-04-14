@@ -44,4 +44,3 @@ jobs:
         run: nix develop --impure -c just publish
         env:
           HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
-          DEBUG: 1

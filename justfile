@@ -28,6 +28,7 @@ pg:
 
 # --------
 # Erlang
+
 # --------
 build:
     rebar3 compile
@@ -63,7 +64,7 @@ release-test:
     rebar3 as test release
 
 # Publish to HEX
-release:
+publish:
     rebar3 hex build
     rebar3 edoc
     rebar3 hex publish -r hexpm --yes

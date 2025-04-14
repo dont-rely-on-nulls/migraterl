@@ -12,5 +12,3 @@ $$
            RETURN; 
    END;
    $$ LANGUAGE plpgsql;
-
-SELECT drop_all();
