@@ -3,8 +3,7 @@
   tooling ? [ ],
   app_name ? "app_user",
 }:
-rec
-{
+rec {
   packages = tooling;
 
   languages.erlang = {

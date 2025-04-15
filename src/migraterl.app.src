@@ -1,5 +1,5 @@
 {application, migraterl, [
-    {description, "An OTP application"},
+    {description, "A simple forward-only migrations library for Erlang, inspired by DbUp."},
     {vsn, "0.1.0"},
     {registered, []},
     {mod, {migraterl, []}},
@@ -13,5 +13,7 @@
     {env, []},
     {modules, [migraterl, file_utils]},
     {licenses, ["Apache-2.0"]},
-    {links, []}
+    {links, [
+        {"GitHub", "https://github.com/dont-rely-on-nulls/migraterl"}
+    ]}
 ]}.

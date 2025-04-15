@@ -3,16 +3,18 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, init_per_testcase/2, end_per_testcase/2]).
--export([init_test/1]).
+-export([init_test/1, migrate_test/1]).
 
-all() -> [init_test].
+all() -> [init_test, migrate_test].
 
 % Testing infrastructure
 init_per_testcase(_, Config) ->
     TabName = conn_data,
     TabId = ets:new(TabName, [ordered_set, public]),
     Conn = migraterl:default_connection(),
+    Dir = shared:get_test_directory(migraterl),
     ets:insert(TabId, {connection, Conn}),
+    ets:insert(TabId, {migration_dir, Dir}),
     [{TabName, TabId} | Config].
 
 end_per_testcase(_, Config) ->
@@ -27,4 +29,22 @@ end_per_testcase(_, Config) ->
 init_test(Config) ->
     TabId = ?config(conn_data, Config),
     [{connection, Conn}] = ets:lookup(TabId, connection),
-    ok = migraterl:init(Conn).
+    Options = #{},
+    ok = migraterl:init(Conn, Options).
+
+% migrate test cases, uses the example SQL migrations
+% from the test/migrations directory.
+migrate_test(Config) ->
+    TabId = ?config(conn_data, Config),
+    [{connection, Conn}] = ets:lookup(TabId, connection),
+    [{migration_dir, Dir}] = ets:lookup(TabId, migration_dir),
+    MainPath = filename:join([Dir, "main"]),
+    RepeatablePath = filename:join([Dir, "repeatable"]),
+    % First test the normal migrations
+    RepeatableTurnedOff = #{repeatable => false},
+    ok = migraterl:migrate(Conn, MainPath, RepeatableTurnedOff),
+    % Now test if the repeatable stuff works by 
+    % migrating it twice.
+    RepeatableTurnedOn = #{repeatable => true},
+    ok = migraterl:migrate(Conn, RepeatablePath, RepeatableTurnedOn),
+    ok = migraterl:migrate(Conn, RepeatablePath, RepeatableTurnedOn).

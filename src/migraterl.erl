@@ -4,8 +4,7 @@
 %%-------------------------------------------------------------------
 -module(migraterl).
 
--export([init/1, migrate/2]).
--export([default_connection/0]).
+-export([default_connection/0, init/2, migrate/3]).
 
 -include("file_utils.hrl").
 -include("migraterl.hrl").
@@ -19,7 +18,8 @@
 %% @doc A default connection, for local testing or CI.
 %% @end
 -spec default_connection() -> Result when
-    Error :: {error, db_connection_error, Message :: string()},
+    Reason :: string(),
+    Error :: {error, Reason},
     Result :: epgsql:connection() | Error.
 default_connection() ->
     Config =
@@ -36,70 +36,146 @@ default_connection() ->
             Conn;
         Otherwise ->
             Message = io_lib:format("Error while setting connection ~p~n", [Otherwise]),
-            {error, db_connection_error, Message}
+            {error, Message}
     end.
 
-%% @doc Applies a migration file to the Database.
+%% @doc
+%% Collects all SQL statements from a list for Files
 %% @end
--spec upgrade(Conn, Filename) -> Result when
-    Conn :: epgsql:connection(),
-    Filename :: filename(),
-    Error :: {error, upgrade_failure, Reason :: string()},
-    Result :: ok | Error.
-upgrade(Conn, Filename) ->
+aggregate(Filename) ->
     {ok, Bin} = file:read_file(Filename),
     {ok, SQL} = file_utils:format_bin_content(Bin),
-    case epgsql:squery(Conn, SQL) of
-        {ok, _, _} -> ok;
-        Otherwise -> {error, upgrade_failure, Otherwise}
+    SQL.
+
+%% @doc
+%% Extra check when epgsql outputs a list
+%% @end
+proper([]) -> true;
+proper([{ok, _} | T]) -> proper(T);
+proper([{ok, _, _} | T]) -> proper(T);
+proper(_) -> false.
+
+%% @doc
+%% @todo Replace this with erlandono
+%% @end
+collapse(_, [], IfOk, _) -> IfOk;
+collapse(Fun, [H | T], IfOk, IfError) ->
+    case Fun(H) of
+        {ok, _} -> collapse(Fun, T, IfOk, IfError);
+        {ok, _, _} -> collapse(Fun, T, IfOk, IfError);
+        L when is_list(L) ->
+            case proper(L) of
+                true -> collapse(Fun, T, IfOk, IfError);
+                false -> 
+                    Reason = io_lib:format("Bad Migration on ~s", L),
+                    logger:error("[COLLAPSE] ERROR: ~s~n", [Reason]),
+                    IfError(Reason)
+            end;
+        _ -> 
+            Reason = io_lib:format("Bad Migration on ~s", H),
+            logger:error("[COLLAPSE] ERROR: ~s~n", [Reason]),
+            IfError(Reason)
     end.
 
-%% @doc Applies a migration file to the Database.
-%% @todo Rewrite this to run everything in a single transaction.
+%% @doc
+%% Inserts into the migraterl history table
+%% @todo rewrite this, it sucks
 %% @end
--spec upgrade(Conn, Version, Dir) -> Result when
+update_history(Migrations) ->
+    Names = lists:map(fun(F) -> filename:rootname(filename:basename(F)) end, Migrations),
+    Values = lists:map(fun(X) -> io_lib:format("(~s)", [X]) end, Names),
+    SQL = io_lib:format("INSERT INTO migraterl.history (filename) VALUES ~s;", Values),
+    SQL.
+
+%% @doc
+%% Applies a list of SQLStatements, either works or sends a rollback (with a reason) to eqpgsql.
+%% @end
+-spec run(Conn, Statements) -> Result when
+    Conn :: epgsql:connection(),
+    Statements :: [string()],
+    Reason :: string(),
+    Error :: {rollback, Reason},
+    Result :: ok | Error.
+run(_, []) -> ok;
+run(Conn, Statements) ->
+    Fun = fun (Q) -> epgsql:squery(Conn, Q) end,
+    IfError = fun (Reason) -> {rollback, Reason} end,
+    collapse(Fun, Statements, ok, IfError).
+
+-spec create_runner(Conn, Statements, Update, Options) -> Fun when
+    Conn :: epgsql:connection(),
+    Statements :: [string()],
+    Update :: string(),
+    Options :: options(),
+    Reason :: string(),
+    Error :: {rollback, Reason},
+    Result :: ok | Error,
+    Fun :: fun((any()) -> fun((Conn, Statements) -> Result)).
+create_runner(Conn, Statements, _, #{repeatable := true}) ->
+    fun(_) -> run(Conn, Statements) end;
+create_runner(Conn, Statements, _, #{}) ->
+    fun(_) -> run(Conn, Statements) end;
+create_runner(Conn, Statements, Update, #{repeatable := false}) ->
+    New = lists:append(Statements, Update),
+    fun(_) -> run(Conn, New) end.
+
+%% @doc Applies the missing migrations files to the Database.
+%% @end
+-spec upgrade(Conn, Version, Dir, Options) -> Result when
     Conn :: epgsql:connection(),
     Version :: version(),
     Dir :: directory(),
-    Error :: {error, any(), any()},
-    Result :: ok | Error.
-upgrade(Conn, Version, Dir) ->
+    Options :: options(),
+    Reason :: string(),
+    Other :: term(),
+    Ok :: {ok, Other},
+    Error :: {error, Reason},
+    Result :: Ok | Error.
+upgrade(Conn, Version, Dir, Options) ->
     {ok, Files} = file_utils:read_directory(Dir),
     Migrations = lists:nthtail(Version, Files),
-    _X = lists:map(fun(F) -> upgrade(Conn, F) end, Migrations),
-    ok.
+    UpdateHistory = update_history(Migrations),
+    Statements = lists:map(fun(F) -> aggregate(F) end, Migrations),
+    Fun = create_runner(Conn, Statements, UpdateHistory, Options),
+    case epgsql:with_transaction(Conn, Fun) of
+        {rollback, Reason} ->
+            logger:error("[UPGRADE] ERROR: ~s~n", [Reason]),
+            {error, Reason};
+        _Other ->
+            ok
+    end.
 
 %% @doc Creates the required migraterl tables on the Database.
 %% @end
--spec init(Conn :: epgsql:connection()) -> Result when
+-spec init(Conn, Options) -> Result when
+    Conn :: epgsql:connection(),
+    Options :: options(),
     Error :: {error, any(), any()},
     Result :: ok | Error.
-init(Conn) ->
+init(Conn, Options) ->
     {ok, Dir} = file_utils:read_system_migrations(),
-    upgrade(Conn, 0, Dir).
+    upgrade(Conn, 0, Dir, Options).
 
 %% @doc
 %% Given a directory, applies only the files not already present on
 %% the migration. If the migration table does not yet exist, make sure
 %% to create it beforehand.
 %% @end
--spec migrate(Conn :: epgsql:connection(), Dir :: directory()) -> Result when
+-spec migrate(Conn, Dir, Options) -> Result when
+    Conn :: epgsql:connection(),
+    Dir :: directory(),
+    Options :: options(),
     Error :: {error, any(), any()},
     Result :: ok | Error.
-migrate(Conn, Dir) ->
-    {ok, Files} = file_utils:read_directory(Dir),
-    Query = """
-        SELECT COALESCE(MAX(version),0) as last_version
-        FROM migraterl.history
-    """,
-    case epqsql:squery(Conn, Query) of
-        {error, _} ->
-            ok = init(Conn),
-            upgrade(Conn, 0, Files);
+migrate(Conn, Dir, Options) ->
+    Query = "SELECT COALESCE(MAX(version),0) as last_version FROM migraterl.history",
+    case epgsql:squery(Conn, Query) of
+        {error, {error, error, <<"42P01">>, undefined_table, _, _}} ->
+            init(Conn, #{});
         {ok, _, [{Version}]} ->
-            upgrade(Conn, binary_to_integer(Version), Files);
+            upgrade(Conn, binary_to_integer(Version), Dir, Options);
         Otherwise ->
-            Message = io_lib:format("Unmapped Case: ~p~n", Otherwise),
-            logger:error(Message),
-            {error, unmapped_case, Message}
+            Reason = io_lib:format("[Migrate] Unmapped Case: ~p~n", Otherwise),
+            logger:error(Reason),
+            {rollback, Reason}
     end.

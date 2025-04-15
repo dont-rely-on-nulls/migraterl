@@ -19,9 +19,11 @@ logs
 *.iml
 rebar3.crashdump
 *~
+doc/*
 
-# Nix
+# Nix + Other
 .devenv
 .direnv
 .envrc
 result
+.env

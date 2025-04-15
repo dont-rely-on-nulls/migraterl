@@ -28,8 +28,8 @@ pg:
 
 # --------
 # Erlang
-
 # --------
+# Runs rebar3 compile
 build:
     rebar3 compile
 
@@ -43,7 +43,7 @@ dialyzer:
     rebar3 dialyzer
 
 # Runs ther erlang server (inside the rebar shell)
-server: build
+shell: build
     rebar3 shell
 
 # Runs unit tests in the server
@@ -62,3 +62,9 @@ release:
 # Create a prod release (for nix) of the server
 release-test:
     rebar3 as test release
+
+# Publish to HEX
+publish:
+    rebar3 hex build
+    rebar3 edoc
+    rebar3 hex publish -r hexpm --yes
