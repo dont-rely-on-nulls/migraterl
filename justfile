@@ -28,8 +28,8 @@ pg:
 
 # --------
 # Erlang
-
 # --------
+# Runs rebar3 compile
 build:
     rebar3 compile
 
@@ -43,7 +43,7 @@ dialyzer:
     rebar3 dialyzer
 
 # Runs ther erlang server (inside the rebar shell)
-server: build
+shell: build
     rebar3 shell
 
 # Runs unit tests in the server

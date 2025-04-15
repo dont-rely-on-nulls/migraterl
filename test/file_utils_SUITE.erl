@@ -25,8 +25,10 @@ end_per_testcase(_, _Config) ->
 % format_bin_content test cases
 format_bin_content_test(Config) ->
     TabId = ?config(fbc_data, Config),
+    % Happy path
     [{valid_data, ValidData}] = ets:lookup(TabId, valid_data),
     {ok, "SELECT 1; SELECT 2;"} = file_utils:format_bin_content(ValidData),
+    % Error path
     [{invalid_data, InvalidData}] = ets:lookup(TabId, invalid_data),
     {error, _} = file_utils:format_bin_content(InvalidData).
 
@@ -39,5 +41,8 @@ read_system_migrations_test(_Config) ->
 
 % read_directory test cases
 read_directory_test(_Config) ->
+    % Error path
+    {error, _} = file_utils:read_directory("./wrong"),
+    % Happy path
     Path = shared:get_test_directory(migraterl),
     {ok, _} = file_utils:read_directory(Path).

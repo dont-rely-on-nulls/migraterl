@@ -29,7 +29,8 @@ end_per_testcase(_, Config) ->
 init_test(Config) ->
     TabId = ?config(conn_data, Config),
     [{connection, Conn}] = ets:lookup(TabId, connection),
-    ok = migraterl:init(Conn).
+    Options = #{},
+    ok = migraterl:init(Conn, Options).
 
 % migrate test cases, uses the example SQL migrations
 % from the test/migrations directory.
@@ -38,4 +39,12 @@ migrate_test(Config) ->
     [{connection, Conn}] = ets:lookup(TabId, connection),
     [{migration_dir, Dir}] = ets:lookup(TabId, migration_dir),
     MainPath = filename:join([Dir, "main"]),
-    ok = migraterl:migrate(Conn, MainPath).
+    RepeatablePath = filename:join([Dir, "repeatable"]),
+    % First test the normal migrations
+    RepeatableTurnedOff = #{repeatable => false},
+    ok = migraterl:migrate(Conn, MainPath, RepeatableTurnedOff),
+    % Now test if the repeatable stuff works by 
+    % migrating it twice.
+    RepeatableTurnedOn = #{repeatable => true},
+    ok = migraterl:migrate(Conn, RepeatablePath, RepeatableTurnedOn),
+    ok = migraterl:migrate(Conn, RepeatablePath, RepeatableTurnedOn).
