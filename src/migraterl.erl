@@ -83,8 +83,9 @@ collapse(Fun, [H | T], IfOk, IfError) ->
 %% @end
 update_history(Migrations) ->
     Names = lists:map(fun(F) -> filename:rootname(filename:basename(F)) end, Migrations),
-    Values = lists:map(fun(X) -> io_lib:format("(~s)", [X]) end, Names),
-    SQL = io_lib:format("INSERT INTO migraterl.history (filename) VALUES ~s;", Values),
+    L = lists:map(fun(X) -> io_lib:format("(~s)", [X]) end, Names),
+    Values = string:join(L, ","),
+    SQL = io_lib:format("INSERT INTO migraterl.history (filename) VALUES ~s;", [Values]),
     SQL.
 
 %% @doc
