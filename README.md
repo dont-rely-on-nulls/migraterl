@@ -1,6 +1,7 @@
 # migraterl
 
 [![built with nix](https://builtwithnix.org/badge.svg)](https://builtwithnix.org)
+![Hex.pm Version](https://img.shields.io/hexpm/v/migraterl)
 
 A simple forward-only migrations library for Erlang, inspired by [DbUp](https://dbup.readthedocs.io/en/latest/).
 

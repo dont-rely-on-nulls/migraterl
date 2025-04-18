@@ -25,7 +25,7 @@ end_per_testcase(_, Config) ->
         "DROP SCHEMA IF EXISTS test CASCADE;",
         "DROP SCHEMA IF EXISTS ci CASCADE;"
     ],
-    _Ignore = [ epgsql:squery(Conn, Q) || Q <- Queries ],
+    _Ignore = [epgsql:squery(Conn, Q) || Q <- Queries],
     ets:delete(?config(conn_data, Config)).
 
 % migrate test cases, uses the example SQL migrations
