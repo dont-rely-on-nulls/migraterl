@@ -29,6 +29,7 @@ pg:
 # --------
 # Erlang
 # --------
+
 # Runs rebar3 compile
 build:
     rebar3 compile

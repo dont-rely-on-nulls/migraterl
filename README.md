@@ -1,6 +1,7 @@
 # migraterl
 
 [![built with nix](https://builtwithnix.org/badge.svg)](https://builtwithnix.org)
+![Hex.pm Version](https://img.shields.io/hexpm/v/migraterl)
 
 A simple forward-only migrations library for Erlang, inspired by [DbUp](https://dbup.readthedocs.io/en/latest/).
 
@@ -32,6 +33,9 @@ Then you want to first fetch the directory from the release itself:
     % Asumming 'Module' is an atom pointing to your Module's name,
     % i.e. ?MODULE
     Dir = code:lib_dir(Module),
+    % Or even something like this...
+    {ok, AnotherDir} = file:get_cwd(),
+    % Then append the actual migration path into the release's directory
     PathSuffix = ["some_dir", "migrations"],
     Path = filename:join([Dir | PathSuffix]),
 
