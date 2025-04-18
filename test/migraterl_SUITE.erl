@@ -3,9 +3,9 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, init_per_testcase/2, end_per_testcase/2]).
--export([init_test/1, migrate_test/1]).
+-export([migrate_test/1]).
 
-all() -> [init_test, migrate_test].
+all() -> [migrate_test].
 
 % Testing infrastructure
 init_per_testcase(_, Config) ->
@@ -20,17 +20,13 @@ init_per_testcase(_, Config) ->
 end_per_testcase(_, Config) ->
     TabId = ?config(conn_data, Config),
     [{connection, Conn}] = ets:lookup(TabId, connection),
-    SqlQuery = "DROP SCHEMA IF EXISTS migraterl CASCADE;",
-    epgsql:squery(Conn, SqlQuery),
+    Queries = [
+        "DROP SCHEMA IF EXISTS migraterl CASCADE;",
+        "DROP SCHEMA IF EXISTS test CASCADE;",
+        "DROP SCHEMA IF EXISTS ci CASCADE;"
+    ],
+    _Ignore = [ epgsql:squery(Conn, Q) || Q <- Queries ],
     ets:delete(?config(conn_data, Config)).
-
-% init test cases, make sure to have postgresql running,
-% "devenv up" will take care of that in your nix shell.
-init_test(Config) ->
-    TabId = ?config(conn_data, Config),
-    [{connection, Conn}] = ets:lookup(TabId, connection),
-    Options = #{},
-    ok = migraterl:init(Conn, Options).
 
 % migrate test cases, uses the example SQL migrations
 % from the test/migrations directory.
@@ -42,9 +38,9 @@ migrate_test(Config) ->
     RepeatablePath = filename:join([Dir, "repeatable"]),
     % First test the normal migrations
     RepeatableTurnedOff = #{repeatable => false},
-    ok = migraterl:migrate(Conn, MainPath, RepeatableTurnedOff),
-    % Now test if the repeatable stuff works by 
-    % migrating it twice.
+    {ok, L} = migraterl:migrate(Conn, MainPath, RepeatableTurnedOff),
+    3 = length(L),
+    % Now test if the repeatable stuff works as well
     RepeatableTurnedOn = #{repeatable => true},
-    ok = migraterl:migrate(Conn, RepeatablePath, RepeatableTurnedOn),
-    ok = migraterl:migrate(Conn, RepeatablePath, RepeatableTurnedOn).
+    {ok, R} = migraterl:migrate(Conn, RepeatablePath, RepeatableTurnedOn),
+    1 = length(R).
