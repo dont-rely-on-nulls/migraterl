@@ -6,15 +6,21 @@
 rec {
   packages = tooling;
 
+  dotenv = {
+    enable = true;
+    filename = ".env";
+  };
+
   languages.erlang = {
     enable = true;
   };
 
   scripts = {
+    db.exec = "just db";
     build.exec = "rebar3 compile";
     shell.exec = "rebar3 shell";
     test.exec = "just t";
-    db.exec = "just db";
+    publish.exec = "just publish";
   };
 
   env = {
