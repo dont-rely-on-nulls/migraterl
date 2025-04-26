@@ -1,6 +1,6 @@
 {application, migraterl, [
     {description, "A simple forward-only migrations library for Erlang, inspired by DbUp."},
-    {vsn, "0.1.2"},
+    {vsn, "0.1.3"},
     {registered, []},
     {mod, {migraterl, []}},
     {applications, [
