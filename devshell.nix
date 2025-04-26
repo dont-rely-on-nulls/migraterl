@@ -14,6 +14,7 @@ rec {
     build.exec = "rebar3 compile";
     shell.exec = "rebar3 shell";
     test.exec = "just t";
+    db.exec = "just db";
   };
 
   env = {

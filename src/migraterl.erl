@@ -54,13 +54,14 @@ default_connection() ->
     Error :: {error, Reason},
     Result :: ok | Error.
 migrate(Conn, Dir, Options) ->
-    Query = "SELECT COALESCE(MAX(version),0) as last_version FROM migraterl.history",
+    Template = "SELECT * FROM migraterl.last_version('~s')",
+    Query = io_lib:format(Template, [Dir]),
     do([
         error_m
      || QueryResult = epgsql:squery(Conn, Query),
         {Version, State} <- set_state(QueryResult),
         Migrations <- select_files({Version, State}, Dir, Options),
-        Result = epgsql:with_transaction(Conn, fun(_) -> run(Conn, Migrations, []) end),
+        Result = epgsql:with_transaction(Conn, fun(_) -> run(Conn, Dir, Migrations, []) end),
         case Result of
             {ok, R} -> return(R);
             {rollback, E} -> fail(E);
@@ -74,8 +75,10 @@ migrate(Conn, Dir, Options) ->
 %% @end
 set_state(QueryResult) ->
     case QueryResult of
-        {error, {error, error, <<"42P01">>, undefined_table, _, _}} -> {ok, {0, init}};
-        {ok, _, [{V}]} -> {ok, {binary_to_integer(V), created}}
+        {error, {error, error, _, undefined_table, _, _}} -> {ok, {0, init}};
+        {error, {error, error, _, invalid_schema_name, _, _}} -> {ok, {0, init}};
+        % ROW_NUMBER() start at 1
+        {ok, _, [{V}]} -> {ok, {binary_to_integer(V) - 1, created}}
     end.
 
 %% @doc
@@ -130,54 +133,59 @@ migration_seq(_Files, _Version, _) ->
 %% Parses [{mode, filepath}] recursively, if an error happens this
 %% will immediatly stop and trigger a rollback.
 %% @end
--spec run(Conn, Entry, Acc) -> Result when
+-spec run(Conn, Dir, Entry, Acc) -> Result when
     Conn :: epgsql:connection(),
+    Dir :: directory(),
     Entry :: [{mode(), filename()}],
     Acc :: [string()],
     Reason :: string(),
     Ok :: {ok, list()},
     Error :: {error, Reason},
     Result :: Ok | Error.
-run(_, [], Acc) ->
+run(_, _, [], Acc) ->
     {ok, Acc};
-run(Conn, [{Mode, Path} | T], Acc) ->
+run(Conn, Dir, [{Mode, Path} | T], Acc) ->
     Filename = filename:basename(Path),
-    {ok, SQL} = aggregate(Path, Filename, Mode),
+    {ok, SQL} = aggregate(Path, Dir, Filename, Mode),
     QueryResult = epgsql:squery(Conn, SQL),
     case QueryResult of
         {ok, _} ->
-            run(Conn, T, lists:append(Acc, [Filename]));
+            run(Conn, Dir, T, lists:append(Acc, [Filename]));
         {ok, _, _} ->
-            run(Conn, T, lists:append(Acc, [Filename]));
+            run(Conn, Dir, T, lists:append(Acc, [Filename]));
         L when is_list(L) ->
             case lists:all(fun(X) -> ok =:= element(1, X) end, L) of
                 true ->
-                    run(Conn, T, lists:append(Acc, [Filename]));
+                    run(Conn, Dir, T, lists:append(Acc, [Filename]));
                 false ->
+                    Format = "Failure while processing list: ~p~n",
+                    Message = io_lib:format(Format, [L]),
+                    logger:error(Message),
                     {rollback, "Failure while processing list"}
             end;
         {error, {_, _, _, ErrorType, ErrorMessage, _}} ->
-            Reason = io_lib:format("ERROR at ~s: ~p~n~p~n", [Filename, ErrorType, ErrorMessage]),
+            Format = "ERROR at ~s: ~p~n~p~n",
+            Reason = io_lib:format(Format, [Filename, ErrorType, ErrorMessage]),
             logger:error(Reason),
             {rollback, Reason}
     end.
 
-update_history(File) ->
-    Query = "INSERT INTO migraterl.history (filename) VALUES ('~s');",
-    SQL = io_lib:format(Query, [File]),
-    list_to_binary(SQL).
-
-aggregate(Path, Filename, apply_once) ->
+aggregate(Path, Dir, Filename, apply_once) ->
     do([
         error_m
      || Bin <- file:read_file(Path),
-        Update = update_history(Filename),
+        Update = update_history(Dir, Filename),
         SQL = <<Bin/binary, Update/binary>>,
         return(SQL)
     ]);
-aggregate(Path, _, _) ->
+aggregate(Path, _, _, _) ->
     do([
         error_m
      || Bin <- file:read_file(Path),
         return(Bin)
     ]).
+
+update_history(Dir, File) ->
+    Format = "INSERT INTO migraterl.history (directory, filename) VALUES ('~s', '~s');",
+    SQL = io_lib:format(Format, [Dir, File]),
+    list_to_binary(SQL).

@@ -68,4 +68,4 @@ release-test:
 publish:
     rebar3 hex build
     rebar3 edoc
-    rebar3 hex publish -r hexpm --yes
+    DIAGNOSTIC=1 rebar3 hex publish --repo hexpm --yes
