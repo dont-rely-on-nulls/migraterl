@@ -1,17 +1,20 @@
 {application, migraterl, [
-    {description, "A simple forward-only migrations library for Erlang, inspired by DbUp."},
-    {vsn, "0.1.3"},
-    {registered, []},
-    {mod, {migraterl, []}},
+    {description,
+        "A forward-only SQL migration engine for PostgreSQL, built on gen_statem and temporal journaling."},
+    {vsn, git},
+    {registered, [migraterl_sup]},
+    {mod, {migraterl_app, []}},
     {applications, [
         kernel,
         stdlib,
         sasl,
-        epgsql,
-        erlandono
+        crypto,
+        epgsql
     ]},
+    %% fs powers the opt-in directory watcher; not required for core runs.
+    {optional_applications, [fs]},
     {env, []},
-    {modules, [migraterl, file_utils]},
+    {modules, []},
     {licenses, ["Apache-2.0"]},
     {links, [
         {"GitHub", "https://github.com/dont-rely-on-nulls/migraterl"}

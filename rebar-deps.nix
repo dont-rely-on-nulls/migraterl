@@ -12,6 +12,16 @@ in
 let
   self = packages // (overrides self packages);
   packages = with self; {
+    fs = builder {
+      name = "fs";
+      version = "11.4.1";
+      src = fetchHex {
+        pkg = "fs";
+        version = "11.4.1";
+        sha256 = "sha256-3QCmHYnqwB0W0/xR1bDrXwci7448GjpUfNCGlX8yYKk=";
+      };
+      beamDeps = [ ];
+    };
     erlandono = builder {
       name = "erlandono";
       version = "3.1.3";

@@ -1,5 +1,5 @@
-set export := true
-set dotenv-load := true
+set export
+set dotenv-load
 
 # Application
 
