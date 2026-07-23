@@ -1,70 +1,83 @@
-name: "[Nix] Build"
+name: CI
 
 on:
-  workflow_call:
+  push:
+    branches: [master]
+    paths:
+      - .github/workflows/**
+      - config/**
+      - include/**
+      - modules/**
+      - src/**
+      - test/**
+      - priv/**
+      - flake.nix
+      - flake.lock
+      - rebar.config
+      - rebar.lock
+      - justfile
+  pull_request:
+    paths:
+      - .github/workflows/**
+      - config/**
+      - include/**
+      - modules/**
+      - src/**
+      - test/**
+      - priv/**
+      - flake.nix
+      - flake.lock
+      - rebar.config
+      - rebar.lock
+      - justfile
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
-    name: Build
+  test:
+    name: Unit + Integration (devenv)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          lfs: true
+
+      # Reclaim the runner's disk for the Nix store
+      - name: Nothing but Nix
+        uses: wimpysworld/nothing-but-nix@main
 
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
 
-      - name: "[Nix] Build"
-        id: nix_build
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Install devenv CLI
+        run: nix profile add nixpkgs#devenv
+
+      # Guards the release build (including fs's native port via the pc plugin).
+      - name: Build release
+        run: nix build --print-build-logs
+
+      # Start the devenv services (PostgreSQL) detached, wait until Postgres
+      # accepts connections, then run the full unit + integration suite.
+      # `devenv test` does not bring services up in the flake-compat wrapper,
+      # so we start them explicitly with `devenv up -D`.
+      # https://devenv.sh/integrations/github-actions/#run-multiple-commands
+      - name: Unit + integration tests
         run: |
-          nix build
-
-      - name: "[Rebar] Compile"
-        id: compile
-        run: |
-          nix develop .#ci --impure -c rebar3 compile
-          if [ $? -eq 0 ]; then
-            echo "status=passing" >> $GITHUB_OUTPUT
-          else
-            echo "status=failing" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-
-      - name: "[Rebar] Dialyzer"
-        id: dialyzer
-        continue-on-error: true
-        run: |
-          nix develop .#ci --impure -c rebar3 dialyzer
-          if [ $? -eq 0 ]; then
-            echo "status=passing" >> $GITHUB_OUTPUT
-          else
-            echo "status=failing" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-
-      # Generate SVG badges
-      - name: "[Badge] Compile"
-        uses: emibcn/badge-action@v2
-        if: ${{ github.event_name != 'pull_request' }}
-        with:
-          label: compile
-          status: ${{ steps.compile.outputs.status }}
-          color: ${{ steps.compile.outputs.status == 'passing' && 'brightgreen' || 'red' }}
-          path: compile-badge.svg
-
-      - name: "[Badge] Dialyzer"
-        uses: emibcn/badge-action@v2
-        if: ${{ github.event_name != 'pull_request' }}
-        with:
-          label: dialyzer
-          status: ${{ steps.dialyzer.outputs.status }}
-          color: ${{ steps.dialyzer.outputs.status == 'passing' && 'brightgreen' || 'red' }}
-          path: dialyzer-badge.svg
-
+          nix develop .#default --impure --command bash -euo pipefail -c '
+            devenv up -D
+            for _ in $(seq 1 60); do
+              pg_isready -qh 127.0.0.1 -p 5432 && break
+              sleep 1
+            done
+            pg_isready -h 127.0.0.1 -p 5432
+            rebar3 eunit
+            rebar3 ct
+          '
