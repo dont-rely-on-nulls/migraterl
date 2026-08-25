@@ -23,6 +23,11 @@ Conn = migraterl:default_connection(),
     variables => #{<<"env">> => <<"prod">>}
 }).
 ```
+
+As an alternative to explicit `sources`, callers may provide an opt-in
+Grate-inspired lifecycle with `layout => #{profile => grate, root => Dir}` or
+a custom ordered `stages` list. Both forms normalize to the same existing
+script classes before the runner starts.
 """.
 
 -include("migraterl.hrl").
@@ -58,7 +63,10 @@ default_connection() ->
 -doc "Apply all pending migrations for the given configuration.".
 -spec migrate(epgsql:connection(), map()) -> {ok, summary()} | {error, term()}.
 migrate(Conn, OptsMap) ->
-    migraterl_runner:run(Conn, opts(OptsMap), ?DEFAULT_TIMEOUT).
+    case migraterl_config:normalize(OptsMap) of
+        {ok, Opts} -> migraterl_runner:run(Conn, Opts, ?DEFAULT_TIMEOUT);
+        {error, _} = Err -> Err
+    end.
 
 -doc """
 Dry run: compute and return what would be applied without touching any
@@ -66,8 +74,10 @@ target schema (the journal is still created and read).
 """.
 -spec plan(epgsql:connection(), map()) -> {ok, summary()} | {error, term()}.
 plan(Conn, OptsMap) ->
-    Opts = (opts(OptsMap))#opts{dry_run = true},
-    migraterl_runner:run(Conn, Opts, ?DEFAULT_TIMEOUT).
+    case migraterl_config:normalize(OptsMap) of
+        {ok, Opts} -> migraterl_runner:run(Conn, Opts#opts{dry_run = true}, ?DEFAULT_TIMEOUT);
+        {error, _} = Err -> Err
+    end.
 
 -doc "The currently-applied journal state for a namespace.".
 -spec status(epgsql:connection(), namespace()) -> {ok, [map()]} | {error, term()}.
@@ -86,22 +96,3 @@ status(Conn, Namespace) ->
         {error, _} = Err ->
             Err
     end.
-
-%% ---------------
-%% Options
-%% ---------------
-
-opts(Map) ->
-    #opts{
-        namespace = to_bin(maps:get(namespace, Map, <<"default">>)),
-        sources = maps:get(sources, Map, []),
-        txn = maps:get(txn, Map, per_script),
-        on_out_of_order = maps:get(on_out_of_order, Map, warn),
-        variables = maps:get(variables, Map, #{}),
-        dry_run = maps:get(dry_run, Map, false),
-        notify = maps:get(notify, Map, true)
-    }.
-
-to_bin(B) when is_binary(B) -> B;
-to_bin(L) when is_list(L) -> list_to_binary(L);
-to_bin(A) when is_atom(A) -> atom_to_binary(A, utf8).

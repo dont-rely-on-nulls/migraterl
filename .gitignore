@@ -24,6 +24,5 @@ doc/*
 # Nix + Other
 .devenv
 .direnv
-.envrc
 result
 .env

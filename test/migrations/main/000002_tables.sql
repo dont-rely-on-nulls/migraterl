@@ -1,18 +1,21 @@
 -- Types
-DO $$ BEGIN
-    IF to_regtype('test.status') IS NULL THEN
-        CREATE TYPE test.status AS ENUM(
+DO $$
+BEGIN
+    IF TO_REGTYPE('test.status') IS NULL THEN
+        CREATE TYPE test.status AS ENUM (
             'READY',
             'RUNNING',
             'SUCCEEDED',
             'FAILED'
-        );
+);
     END IF;
-END $$;
+END
+$$;
 
 -- Tables
 CREATE TABLE IF NOT EXISTS test.example (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     status TEST.STATUS NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    created_at timestamptz DEFAULT CURRENT_TIMESTAMP
 );
+

@@ -6,7 +6,6 @@
     {
       pkgs,
       config,
-      chryso,
       ...
     }:
     let
@@ -19,6 +18,16 @@
         projectRootFile = "flake.nix";
         programs.erlfmt.enable = true;
         programs.nixfmt.enable = true;
+
+        settings.formatter.pg_format = {
+          command = "${pkgs.pgformatter}/bin/pg_format";
+          options = [
+            "--inplace"
+            "-f"
+            "2"
+          ];
+          includes = [ "*.sql" ];
+        };
       };
 
       devenv.shells.ci = {

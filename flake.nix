@@ -1,5 +1,5 @@
 {
-  description = "Erlang + Nix + PG Environment";
+  description = "migraterl environment";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

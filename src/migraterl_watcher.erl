@@ -13,6 +13,8 @@ One watcher is started per entry in the `watchers` application
 environment (see `m:migraterl_sup`). It uses the optional `fs`
 application to observe the source directories of a run configuration
 and re-runs `migraterl:migrate/2` after the debounce window.
+For lifecycle layouts it observes the layout root so optional stage
+directories created later are covered too.
 
 Meant for local development ("apply on save"); production deploys
 should call `migraterl:migrate/2` explicitly at boot.
@@ -26,6 +28,8 @@ A watcher spec is a map:
 ```
 """.
 -behaviour(gen_statem).
+
+-include("migraterl.hrl").
 
 -export([start_link/1]).
 -export([init/1, callback_mode/0, terminate/3]).
@@ -49,29 +53,47 @@ callback_mode() -> state_functions.
 
 init(Spec) ->
     process_flag(trap_exit, true),
-    case ensure_fs() of
+    Migrate = maps:get(migrate, Spec),
+    case migraterl_config:normalize(Migrate) of
+        {ok, Opts} -> init_validated(Spec, Migrate, Opts);
+        {error, Reason} -> {stop, {invalid_migrate_options, Reason}}
+    end.
+
+init_validated(Spec, Migrate, Opts) ->
+    Dirs = [normalize(Dir) || Dir <- migraterl_config:watch_dirs(Opts)],
+    case validate_watch_dirs(Dirs) of
         ok ->
-            ConnSpec = maps:get(conn, Spec),
-            case connect(ConnSpec) of
-                {ok, Conn} ->
-                    Migrate = maps:get(migrate, Spec),
-                    Debounce = maps:get(debounce_ms, Spec, ?DEFAULT_DEBOUNCE_MS),
-                    Dirs = [normalize(Dir) || {_Class, Dir} <- maps:get(sources, Migrate, [])],
-                    _ = [start_fs(Dir) || Dir <- Dirs],
-                    ok = fs:subscribe(),
-                    Data = #data{
-                        conn = Conn,
-                        owns_conn = is_map(ConnSpec),
-                        migrate = Migrate,
-                        debounce = Debounce,
-                        dirs = Dirs
-                    },
-                    {ok, idle, Data};
-                {error, Reason} ->
-                    {stop, {connect_failed, Reason}}
+            case ensure_fs() of
+                ok -> init_fs(Spec, Migrate, Dirs);
+                {error, Reason} -> {stop, {fs_unavailable, Reason}}
             end;
         {error, Reason} ->
-            {stop, {fs_unavailable, Reason}}
+            {stop, Reason}
+    end.
+
+init_fs(Spec, Migrate, Dirs) ->
+    case start_all_fs(Dirs) of
+        ok ->
+            init_connection(Spec, Migrate, Dirs);
+        {error, Reason} ->
+            {stop, Reason}
+    end.
+
+init_connection(Spec, Migrate, Dirs) ->
+    ConnSpec = maps:get(conn, Spec),
+    case connect(ConnSpec) of
+        {ok, Conn} ->
+            Debounce = maps:get(debounce_ms, Spec, ?DEFAULT_DEBOUNCE_MS),
+            Data = #data{
+                conn = Conn,
+                owns_conn = is_map(ConnSpec),
+                migrate = Migrate,
+                debounce = Debounce,
+                dirs = Dirs
+            },
+            {ok, idle, Data};
+        {error, Reason} ->
+            {stop, {connect_failed, Reason}}
     end.
 
 %% idle: a relevant change starts the debounce window.
@@ -124,12 +146,34 @@ ensure_fs() ->
         {error, _} = Err -> Err
     end.
 
+validate_watch_dirs([]) ->
+    ok;
+validate_watch_dirs([Dir | Rest]) ->
+    case filelib:is_dir(Dir) of
+        true -> validate_watch_dirs(Rest);
+        false -> {error, {watch_failed, Dir, enoent}}
+    end.
+
+start_all_fs([]) ->
+    ok;
+start_all_fs([Dir | Rest]) ->
+    case start_fs(Dir) of
+        {ok, Name} ->
+            case fs:subscribe(Name) of
+                ok -> start_all_fs(Rest);
+                {error, Reason} -> {error, {watch_subscribe_failed, Dir, Reason}}
+            end;
+        {error, _} = Err ->
+            Err
+    end.
+
 start_fs(Dir) ->
     Name = binary_to_atom(<<"migraterl_fs_", Dir/binary>>, utf8),
     case fs:start_link(Name, Dir) of
-        {ok, _} -> ok;
-        {error, {already_started, _}} -> ok;
-        _ -> ok
+        {ok, _} -> {ok, Name};
+        {error, {already_started, _}} -> {ok, Name};
+        {error, Reason} -> {error, {watch_failed, Dir, Reason}};
+        Other -> {error, {watch_failed, Dir, Other}}
     end.
 
 normalize(Dir) ->
