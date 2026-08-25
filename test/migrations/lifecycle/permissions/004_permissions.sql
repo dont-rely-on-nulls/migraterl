@@ -1,0 +1,2 @@
+GRANT SELECT ON TABLE lifecycle.events TO CURRENT_USER;
+

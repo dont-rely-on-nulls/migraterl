@@ -14,6 +14,14 @@
 %%   always    - applied on every run, never journaled
 -type script_class() :: once | on_change | always.
 
+%% Logical identity for a configured source/stage. It is diagnostic metadata;
+%% the journal continues to identify scripts by basename for compatibility.
+-type source_id() :: atom() | binary().
+
+%% A lifecycle stage controls discovery/application order independently from
+%% the script class. Multiple custom sources may intentionally share a stage.
+-type stage() :: atom() | binary().
+
 %% Transaction granularity for a run.
 -type txn_mode() :: per_script | single | none.
 
@@ -34,12 +42,25 @@
 %% Records
 %% ---------------
 
+%% A normalized source directory. Public legacy tuples and lifecycle layout
+%% stages are converted to this shape before a runner is started.
+-record(source, {
+    id :: source_id(),
+    stage :: stage(),
+    path :: file:filename_all(),
+    class :: script_class(),
+    required = true :: boolean()
+}).
+
 %% A script discovered on disk during the scanning phase.
 -record(script, {
     namespace :: namespace(),
     name :: binary(),
     path :: file:filename_all(),
     class :: script_class(),
+    %% source/stage that discovered the script; not part of journal identity
+    source_id = undefined :: source_id() | undefined,
+    stage = undefined :: stage() | undefined,
     %% lexical position within its own source directory (0-based)
     order :: non_neg_integer(),
     %% lowercase hex sha256 of the raw file contents (pre-substitution)
@@ -74,8 +95,10 @@
 %% Options for a run. All fields optional; see migraterl:default_opts/0.
 -record(opts, {
     namespace = <<"default">> :: namespace(),
-    %% ordered list of {Class, Directory}
-    sources = [] :: [{script_class(), file:filename_all()}],
+    %% normalized, ordered source directories
+    sources = [] :: [#source{}],
+    %% directories observed by migraterl_watcher (layout roots or source dirs)
+    watch_dirs = [] :: [file:filename_all()],
     txn = per_script :: txn_mode(),
     on_out_of_order = warn :: ooo_policy(),
     %% $key$ -> value substitution applied to SQL at execution time

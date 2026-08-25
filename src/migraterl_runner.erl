@@ -56,7 +56,12 @@ Run a migration to completion and return its result. Blocks the caller
 until the runner reaches a terminal state.
 """.
 -spec run(epgsql:connection(), #opts{}, timeout()) ->
-    {ok, #{applied := [binary()], skipped := [binary()], warnings := [warning()]}}
+    {ok, #{
+        planned := [binary()],
+        applied := [binary()],
+        skipped := [binary()],
+        warnings := [warning()]
+    }}
     | {error, term()}.
 run(Conn, Opts, Timeout) ->
     case gen_statem:start(?MODULE, {Conn, Opts}, []) of
@@ -147,7 +152,7 @@ applying(
     apply_next,
     #data{plan = #plan{actions = [Action | Rest]} = Plan, conn = Conn, opts = Opts} = Data
 ) ->
-    #action{script = #script{name = Name}} = Action,
+    #action{script = #script{name = Name} = Script} = Action,
     case apply_action(Conn, Action, Opts) of
         {ok, _Ms} ->
             Data1 = Data#data{
@@ -157,6 +162,7 @@ applying(
             {keep_state, Data1, [{next_event, internal, apply_next}]};
         {error, Reason} ->
             _ = abort(Conn, Opts),
+            log_apply_failure(Script),
             fail({error, {apply_failed, Name, Reason}}, Data)
     end.
 
@@ -245,6 +251,24 @@ fatal_warnings(#plan{warnings = Warnings}, #opts{on_out_of_order = error}) ->
     [Name || {out_of_order, Name} <- Warnings];
 fatal_warnings(_Plan, _Opts) ->
     [].
+
+log_apply_failure(#script{
+    namespace = Namespace,
+    name = Name,
+    path = Path,
+    stage = Stage,
+    source_id = SourceId
+}) ->
+    %% Do not attach SQL, substituted variables, or the database error detail:
+    %% PostgreSQL diagnostics may echo values from the submitted statement.
+    logger:error("Migration application failed", #{
+        namespace => Namespace,
+        script => Name,
+        path => Path,
+        stage => Stage,
+        source_id => SourceId,
+        failure => apply_failed
+    }).
 
 terminate(_Reason, _State, #data{locked = true, conn = Conn, opts = Opts}) ->
     migraterl_pg:advisory_unlock(Conn, Opts#opts.namespace);
